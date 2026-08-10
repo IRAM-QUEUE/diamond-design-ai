@@ -1,4 +1,5 @@
 import { containsArabicText } from "@/lib/personalization";
+import { jewelryFonts } from "@/config/jewelry-fonts";
 import type { DesignProfile, ImageModelPreference } from "@/types/design";
 import type { JewelryImagePrompt } from "./provider";
 
@@ -43,6 +44,7 @@ export function buildEditPrompt({
   const preservationSentence = `Keep unchanged: ${preserved.join(", ")}.`;
   const profileDetails = describeProfile(designProfile);
   const personalization = describePersonalization(designProfile);
+  const textConstraint = buildImageTextConstraint(designProfile, true);
 
   if (preference === "precise_changes") {
     return [
@@ -51,6 +53,7 @@ export function buildEditPrompt({
       `Must remain unchanged:\n${preserved.map((item) => `- ${item}`).join("\n")}`,
       profileDetails ? `Desired resulting design details: ${profileDetails}.` : "",
       personalization,
+      textConstraint,
       "Apply only the requested change. The finished image must remain realistic luxury jewelry product photography."
     ]
       .filter(Boolean)
@@ -64,6 +67,7 @@ export function buildEditPrompt({
       profileDetails ? `The desired resulting jewelry is: ${profileDetails}.` : "",
       personalization,
       buildExactLetteringDirective(designProfile),
+      textConstraint,
       "Return one realistic, wearable fine-jewelry product image with the original camera treatment preserved."
     ]
       .filter(Boolean)
@@ -76,7 +80,8 @@ export function buildEditPrompt({
       `Explore the requested creative direction while preserving every unaffected part of the source, including ${preserved.join(", ")}.`,
       profileDetails ? `The desired result should still follow these design details: ${profileDetails}.` : "",
       personalization,
-      "Present the result as one coherent, photorealistic luxury jewelry campaign image."
+      textConstraint,
+      "Present the result as one coherent, photorealistic luxury jewelry editorial product image."
     ]
       .filter(Boolean)
       .join(" ");
@@ -87,6 +92,7 @@ export function buildEditPrompt({
     `Preserve the same design and photographic setup, including ${preserved.join(", ")}.`,
     profileDetails ? `The finished jewelry should positively match these details: ${profileDetails}.` : "",
     personalization,
+    textConstraint,
     "Apply the change locally and keep the result realistic, wearable, refined, and suitable for premium macro product photography."
   ]
     .filter(Boolean)
@@ -100,13 +106,15 @@ function buildGenerationPrompt(
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
+  const textConstraint = buildImageTextConstraint(profile, false);
 
   if (preference === "creative_exploration") {
     return [
       `Create one imaginative but wearable photorealistic luxury jewelry concept based on ${direction.emphasis}.`,
       profileDetails ? `The design should follow these customer details: ${profileDetails}.` : "",
       personalization,
-      "Photograph the finished piece in a refined high-end boutique campaign with premium studio lighting, precise reflections, crisp diamond facets, realistic metal texture, and elegant black-and-silver styling.",
+      textConstraint,
+      "Photograph the finished piece in a refined, unbranded high-end studio setting with premium lighting, precise reflections, crisp diamond facets, realistic metal texture, and elegant black-and-silver styling.",
       "Use a square composition with the jewelry in sharp macro focus."
     ]
       .filter(Boolean)
@@ -118,14 +126,17 @@ function buildGenerationPrompt(
     profileDetails ? `Design details: ${profileDetails}.` : "",
     personalization,
     preference === "names_lettering" ? buildExactLetteringDirective(profile) : "",
+    textConstraint,
     "Show the finished piece as photorealistic luxury diamond jewelry product photography in a square composition.",
-    "Use premium studio lighting, crisp diamond facets, precise elegant reflections, realistic metal texture, sharp macro focus, and refined black-and-silver boutique campaign styling."
+    "Use premium studio lighting, crisp diamond facets, precise elegant reflections, realistic metal texture, sharp macro focus, and refined unbranded black-and-silver studio styling."
   ]
     .filter(Boolean)
     .join(" ");
 }
 
 function describeProfile(profile: DesignProfile) {
+  const customerNotes = profile.notes.filter((note) => !isStructuredFontSelectionNote(note));
+  const fontStyle = describeFontStyle(profile.fontPreference);
   const parts = [
     profile.jewelryType ? `jewelry type: ${profile.jewelryType}` : "",
     profile.occasion ? `occasion: ${profile.occasion}` : "",
@@ -138,8 +149,8 @@ function describeProfile(profile: DesignProfile) {
     profile.budgetRange ? `budget character: ${profile.budgetRange}` : "",
     profile.personalizationText ? `personalized name or inscription text: ${profile.personalizationText}` : "",
     profile.personalizationScript ? `personalization script/language: ${profile.personalizationScript}` : "",
-    profile.fontPreference ? `requested lettering/font style: ${profile.fontPreference}` : "",
-    profile.notes.length ? `customer notes: ${profile.notes.join("; ")}` : ""
+    fontStyle ? `lettering style direction (visual treatment only, not text to render): ${fontStyle}` : "",
+    customerNotes.length ? `customer notes: ${customerNotes.join("; ")}` : ""
   ].filter(Boolean);
 
   return parts.join(", ");
@@ -147,6 +158,7 @@ function describeProfile(profile: DesignProfile) {
 
 function describePersonalization(profile: DesignProfile) {
   if (!profile.personalizationText && !profile.fontPreference) return "";
+  const fontStyle = describeFontStyle(profile.fontPreference);
 
   return [
     "Integrate the personalization as wearable fine-jewelry construction rather than flat printed text.",
@@ -154,7 +166,9 @@ function describePersonalization(profile: DesignProfile) {
       ? `The exact authoritative inscription is "${profile.personalizationText}".`
       : "",
     profile.personalizationScript ? `The inscription script is ${profile.personalizationScript}.` : "",
-    profile.fontPreference ? `Use lettering inspired by "${profile.fontPreference}".` : ""
+    fontStyle
+      ? `Use this visual letterform direction without rendering any style label: ${fontStyle}.`
+      : ""
   ]
     .filter(Boolean)
     .join(" ");
@@ -165,20 +179,53 @@ function buildExactLetteringDirective(profile: DesignProfile) {
   if (!exactText) return "";
 
   const base = [
-    `Render exactly "${exactText}" and repeat the authoritative inscription exactly as "${exactText}".`,
+    `Render the jewelry inscription once, exactly as "${exactText}".`,
     "Do not translate, transliterate, substitute, add, remove, decorate, or duplicate any character."
   ];
 
   if (containsArabicText(exactText)) {
+    const fontStyle = describeFontStyle(profile.fontPreference);
     base.push(
       "Preserve correct Arabic right-to-left order and naturally joined Arabic letterforms.",
-      profile.fontPreference
-        ? `Follow the selected lettering preference "${profile.fontPreference}" while keeping every Arabic character exact.`
+      fontStyle
+        ? `Follow this selected lettering direction while keeping every Arabic character exact: ${fontStyle}.`
         : "Keep the Arabic lettering legible, refined, and structurally suitable for jewelry."
     );
   }
 
   return base.join(" ");
+}
+
+function describeFontStyle(fontPreference: string) {
+  const normalizedPreference = fontPreference.trim().toLowerCase();
+  if (!normalizedPreference) return "";
+
+  const selectedFont = jewelryFonts.find((font) => font.name.toLowerCase() === normalizedPreference);
+  if (!selectedFont) {
+    return `${fontPreference.trim()} lettering; treat this only as a visual style instruction and never as image text`;
+  }
+
+  return `${selectedFont.category}; ${selectedFont.tags.join(", ").toLowerCase()}; ${selectedFont.note}`;
+}
+
+function isStructuredFontSelectionNote(note: string) {
+  return /^(?:selected|requested)\s+(?:font|lettering style)\s*:/i.test(note.trim());
+}
+
+function buildImageTextConstraint(profile: DesignProfile, removeExistingText: boolean) {
+  const exactText = profile.personalizationText.trim();
+  const allowedText = exactText
+    ? `The only readable lettering allowed is the exact inscription "${exactText}", physically constructed as part of the jewelry itself.`
+    : "No readable letters, words, numbers, or typography are allowed anywhere in the image.";
+
+  return [
+    allowedText,
+    removeExistingText
+      ? "Remove any existing promotional, decorative, background, or overlay text that is not the permitted jewelry inscription."
+      : "Keep the background completely free of writing and graphic-design text elements.",
+    "Do not add any other headlines, captions, slogans, font names, brand names, labels, logos, signatures, initials, monograms, packaging text, or model-generated watermarks.",
+    "The application adds its own watermark separately after generation; do not render any watermark inside the source image."
+  ].join(" ");
 }
 
 function getPreservedElements(editInstruction: string) {
