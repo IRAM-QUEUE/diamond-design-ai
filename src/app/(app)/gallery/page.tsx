@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Download, Gem, Heart, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,75 @@ import { useAuth } from "@/components/auth/auth-provider";
 
 export default function GalleryPage() {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { session: authSession, user } = useAuth();
   const [session, setSession] = useState<PersistedDiamondSession | null>(null);
   const [savedDesigns, setSavedDesigns] = useState<PersistedSavedDesigns | null>(null);
+  const imageRefreshInFlightRef = useRef(false);
+
+  const refreshWishlistImages = useCallback(
+    async (imageIds: string[]) => {
+      const accessToken = authSession?.access_token;
+      const userId = user?.id;
+      if (!accessToken || !userId || !imageIds.length || imageRefreshInFlightRef.current) return;
+
+      imageRefreshInFlightRef.current = true;
+      try {
+        const response = await fetch("/api/design-images/refresh", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ imageIds })
+        });
+        const payload = (await response.json()) as { images?: RefreshedImageLink[] };
+        if (!response.ok || !payload.images?.length) return;
+
+        setSavedDesigns((current) => {
+          if (!current) return current;
+          const generatedConcepts = replaceImageLinks(current.generatedConcepts, payload.images ?? []);
+          if (generatedConcepts === current.generatedConcepts) return current;
+          const next = { ...current, generatedConcepts };
+          saveSavedDesigns(next, userId);
+          return next;
+        });
+
+        setSession((current) => {
+          if (!current) return current;
+          const generatedConcepts = replaceImageLinks(current.generatedConcepts, payload.images ?? []);
+          if (generatedConcepts === current.generatedConcepts) return current;
+          const next = { ...current, generatedConcepts };
+          saveDiamondSession(next, userId);
+          return next;
+        });
+      } catch {
+        // Keep the saved entries intact so a later page load or image error can retry.
+      } finally {
+        imageRefreshInFlightRef.current = false;
+      }
+    },
+    [authSession?.access_token, user?.id]
+  );
 
   useEffect(() => {
-    setSession(loadDiamondSession(user?.id));
-    setSavedDesigns(loadSavedDesigns(user?.id));
-  }, [user?.id]);
+    const loadedSession = loadDiamondSession(user?.id);
+    const loadedSavedDesigns = loadSavedDesigns(user?.id);
+    setSession(loadedSession);
+    setSavedDesigns(loadedSavedDesigns);
+
+    const favoriteIds = new Set([
+      ...(loadedSavedDesigns?.favoriteIds ?? []),
+      ...(loadedSession?.favoriteIds ?? [])
+    ]);
+    const imageIds = mergeConcepts(
+      loadedSavedDesigns?.generatedConcepts ?? [],
+      loadedSession?.generatedConcepts ?? []
+    )
+      .filter((concept) => favoriteIds.has(concept.id))
+      .map((concept) => concept.id);
+
+    void refreshWishlistImages(imageIds);
+  }, [refreshWishlistImages, user?.id]);
 
   const concepts = useMemo(
     () =>
@@ -93,6 +154,7 @@ export default function GalleryPage() {
               finalLabel={t("Final Design", "التصميم النهائي")}
               originalLabel={t("Original concept", "التصور الأصلي")}
               refinementLabel={t("refinement", "تنقيح")}
+              onImageError={() => void refreshWishlistImages(savedConcepts.map((item) => item.id))}
             />
           ))}
         </section>
@@ -127,6 +189,24 @@ function mergeConcepts(...groups: GeneratedConcept[][]) {
   return Array.from(concepts.values());
 }
 
+type RefreshedImageLink = {
+  id: string;
+  url: string;
+};
+
+function replaceImageLinks(concepts: GeneratedConcept[], refreshedImages: RefreshedImageLink[]) {
+  const refreshedUrls = new Map(refreshedImages.map((image) => [image.id, image.url]));
+  let changed = false;
+  const nextConcepts = concepts.map((concept) => {
+    const url = refreshedUrls.get(concept.id);
+    if (!url || url === concept.url) return concept;
+    changed = true;
+    return { ...concept, url };
+  });
+
+  return changed ? nextConcepts : concepts;
+}
+
 function GalleryConceptCard({
   concept,
   favorite,
@@ -134,7 +214,8 @@ function GalleryConceptCard({
   onToggleFavorite,
   finalLabel,
   originalLabel,
-  refinementLabel
+  refinementLabel,
+  onImageError
 }: {
   concept: GeneratedConcept;
   favorite: boolean;
@@ -143,12 +224,18 @@ function GalleryConceptCard({
   finalLabel: string;
   originalLabel: string;
   refinementLabel: string;
+  onImageError: () => void;
 }) {
   return (
     <Card className="group overflow-hidden">
       <CardContent className="p-3">
         <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-black">
-          <img src={concept.url} alt={concept.variationName} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]" />
+          <img
+            src={concept.url}
+            alt={concept.variationName}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+            onError={onImageError}
+          />
           {finalized ? (
             <div className="absolute right-3 top-3 rounded-full bg-diamond-champagne/20 px-3 py-1 text-xs text-white shadow-[inset_0_0_0_1px_rgba(215,196,154,0.18)] backdrop-blur">
               {finalLabel}
