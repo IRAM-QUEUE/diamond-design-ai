@@ -52,7 +52,8 @@ export async function POST(request: Request) {
     const routingMetadata = {
       modelPreference: routing.preference,
       effectiveModelPreference: routing.effectivePreference,
-      wasArabicOverride: routing.wasArabicOverride
+      wasArabicOverride: routing.wasArabicOverride,
+      wasLetteringOverride: routing.wasLetteringOverride
     };
 
     const auth = await requireAuthenticatedUser(request);

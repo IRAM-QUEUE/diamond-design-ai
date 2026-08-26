@@ -58,7 +58,7 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       image_input: [],
       aspect_ratio: "1:1",
       resolution: "1K",
-      output_format: "jpg",
+      output_format: "png",
       google_search: false,
       image_search: false
     }),
@@ -67,7 +67,7 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       image_input: [imageUrl],
       aspect_ratio: "match_input_image",
       resolution: "1K",
-      output_format: "jpg",
+      output_format: "png",
       google_search: false,
       image_search: false
     })

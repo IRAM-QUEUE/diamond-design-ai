@@ -44,6 +44,7 @@ export function buildEditPrompt({
   const preservationSentence = `Keep unchanged: ${preserved.join(", ")}.`;
   const profileDetails = describeProfile(designProfile);
   const personalization = describePersonalization(designProfile);
+  const letteringDirective = buildExactLetteringDirective(designProfile);
   const textConstraint = buildImageTextConstraint(designProfile, true);
 
   if (preference === "precise_changes") {
@@ -53,6 +54,7 @@ export function buildEditPrompt({
       `Must remain unchanged:\n${preserved.map((item) => `- ${item}`).join("\n")}`,
       profileDetails ? `Desired resulting design details: ${profileDetails}.` : "",
       personalization,
+      letteringDirective,
       textConstraint,
       "Apply only the requested change. The finished image must remain realistic luxury jewelry product photography."
     ]
@@ -66,7 +68,7 @@ export function buildEditPrompt({
       preservationSentence,
       profileDetails ? `The desired resulting jewelry is: ${profileDetails}.` : "",
       personalization,
-      buildExactLetteringDirective(designProfile),
+      letteringDirective,
       textConstraint,
       "Return one realistic, wearable fine-jewelry product image with the original camera treatment preserved."
     ]
@@ -80,6 +82,7 @@ export function buildEditPrompt({
       `Explore the requested creative direction while preserving every unaffected part of the source, including ${preserved.join(", ")}.`,
       profileDetails ? `The desired result should still follow these design details: ${profileDetails}.` : "",
       personalization,
+      letteringDirective,
       textConstraint,
       "Present the result as one coherent, photorealistic luxury jewelry editorial product image."
     ]
@@ -92,6 +95,7 @@ export function buildEditPrompt({
     `Preserve the same design and photographic setup, including ${preserved.join(", ")}.`,
     profileDetails ? `The finished jewelry should positively match these details: ${profileDetails}.` : "",
     personalization,
+    letteringDirective,
     textConstraint,
     "Apply the change locally and keep the result realistic, wearable, refined, and suitable for premium macro product photography."
   ]
@@ -106,6 +110,7 @@ function buildGenerationPrompt(
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
+  const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
 
   if (preference === "creative_exploration") {
@@ -113,6 +118,7 @@ function buildGenerationPrompt(
       `Create one imaginative but wearable photorealistic luxury jewelry concept based on ${direction.emphasis}.`,
       profileDetails ? `The design should follow these customer details: ${profileDetails}.` : "",
       personalization,
+      letteringDirective,
       textConstraint,
       "Photograph the finished piece in a refined, unbranded high-end studio setting with premium lighting, precise reflections, crisp diamond facets, realistic metal texture, and elegant black-and-silver styling.",
       "Use a square composition with the jewelry in sharp macro focus."
@@ -125,7 +131,7 @@ function buildGenerationPrompt(
     `Create one ${direction.emphasis}.`,
     profileDetails ? `Design details: ${profileDetails}.` : "",
     personalization,
-    preference === "names_lettering" ? buildExactLetteringDirective(profile) : "",
+    letteringDirective,
     textConstraint,
     "Show the finished piece as photorealistic luxury diamond jewelry product photography in a square composition.",
     "Use premium studio lighting, crisp diamond facets, precise elegant reflections, realistic metal texture, sharp macro focus, and refined unbranded black-and-silver studio styling."
@@ -180,20 +186,53 @@ function buildExactLetteringDirective(profile: DesignProfile) {
 
   const base = [
     `Render the jewelry inscription once, exactly as "${exactText}".`,
-    "Do not translate, transliterate, substitute, add, remove, decorate, or duplicate any character."
+    "Do not translate, transliterate, substitute, add, remove, decorate, mirror, reverse, or duplicate any character.",
+    "Treat the inscription as a production-feasible jewelry component, never as flat printed typography or a collection of loose symbols.",
+    "Use believable fine-jewelry metal thickness, clean edges, load-bearing joins, and secure attachment points.",
+    "Every visible letter component must belong to one coherent wearable assembly; no piece may hover, float, balance loosely, or remain mechanically unsupported."
   ];
+
+  if (usesEngravedOrInlaidLettering(profile)) {
+    base.push(
+      "Construct the inscription as engraving or inlay within one continuous metal surface, so counters, dots, accents, and other marks are recessed or securely inlaid rather than separate raised pieces."
+    );
+  } else {
+    base.push(
+      "For freestanding or raised lettering, connect separate glyph sections with natural letter strokes or discreet structural metal bridges, a baseline rail, rim, or rear support that preserves the intended letter shapes.",
+      "The chain, bail, band, or jewelry body must connect securely to the complete lettering assembly rather than to a fragile isolated stroke."
+    );
+  }
 
   if (containsArabicText(exactText)) {
     const fontStyle = describeFontStyle(profile.fontPreference);
     base.push(
-      "Preserve correct Arabic right-to-left order and naturally joined Arabic letterforms.",
+      "Preserve exact Arabic right-to-left spelling and the correct contextual beginning, medial, final, and isolated letterforms.",
+      "Join letters only where Arabic orthography joins them; do not wrongly join letters that are inherently non-connecting. Use discreet structural supports between otherwise separate word sections when manufacturing requires them.",
+      "Keep every required Arabic dot, hamza, and diacritic in the correct count and exact visual position. No dot or mark may float in space: secure it with a tiny deliberate metal bridge, prong, rear support, or shared backplate without fusing it into the wrong stroke or changing the readable glyph.",
       fontStyle
         ? `Follow this selected lettering direction while keeping every Arabic character exact: ${fontStyle}.`
-        : "Keep the Arabic lettering legible, refined, and structurally suitable for jewelry."
+        : "Keep the Arabic lettering legible, refined, and structurally suitable for jewelry.",
+      "Before finalizing, verify the Arabic spelling, joining behavior, dot count, dot placement, and physical support of every separate mark; correct any floating or disconnected component."
+    );
+  } else {
+    base.push(
+      "Preserve the exact left-to-right character order and recognizable Latin letter anatomy.",
+      "Connect script letters through their natural strokes. For block or serif letters, counters, and detached i or j dots, use discreet bridges, prongs, a baseline, rim, or rear support so every component is physically secured without changing the inscription.",
+      "Before finalizing, verify the exact spelling and confirm that lifting the jewelry would leave every letter and mark securely attached as one piece."
     );
   }
 
   return base.join(" ");
+}
+
+function usesEngravedOrInlaidLettering(profile: DesignProfile) {
+  const designContext = [profile.jewelryType, profile.style, profile.setting, profile.bandStyle, ...profile.notes]
+    .join(" ")
+    .toLowerCase();
+
+  return /\b(?:engraved?|engraving|etched?|etching|inlaid?|inlay)\b|(?:محفور|حفر|منقوش|نقش|مطعّم|تطعيم)/iu.test(
+    designContext
+  );
 }
 
 function describeFontStyle(fontPreference: string) {

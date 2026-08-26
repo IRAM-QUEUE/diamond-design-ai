@@ -6,6 +6,24 @@ export function containsArabicText(value: string | null | undefined) {
   return arabicUnicodePattern.test(value ?? "");
 }
 
+export function requiresJewelryLettering({
+  designProfile,
+  updatedDesignProfile,
+  editInstruction
+}: {
+  designProfile: DesignProfile;
+  updatedDesignProfile?: DesignProfile;
+  editInstruction?: string;
+}) {
+  const desiredProfile = updatedDesignProfile ?? designProfile;
+
+  return Boolean(
+    desiredProfile.personalizationText.trim() ||
+      desiredProfile.fontPreference.trim() ||
+      hasExplicitJewelryLetteringRequest(editInstruction)
+  );
+}
+
 export function requiresArabicJewelryLettering({
   designProfile,
   updatedDesignProfile,
@@ -37,6 +55,14 @@ function hasExplicitArabicLetteringRequest(value: string | undefined) {
   if (!value) return false;
 
   return /\barabic\s+(?:name|initial|inscription|lettering|text|calligraphy)\b|(?:اسم|حرف|نقش|كتابة|خط)\s+(?:عربي|بالعربية)|(?:خط|كتابة|نقش)\s+عربي/iu.test(
+    value
+  );
+}
+
+function hasExplicitJewelryLetteringRequest(value: string | undefined) {
+  if (!value) return false;
+
+  return /\b(?:names?|initials?|monograms?|inscriptions?|lettering|letters?|engraving|engrave|text|words?|typography|calligraphy)\b|(?:اسم|الاسم|أسماء|اسماء|حرف|حروف|نقش|النقش|كتابة|الكتابة|كلمة|كلمات|خط|الخط)/iu.test(
     value
   );
 }

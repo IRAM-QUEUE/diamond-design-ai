@@ -26,7 +26,7 @@ export const imageModelOptions: readonly ImageModelOption[] = [
   {
     preference: "names_lettering",
     name: "Names & Lettering",
-    description: "Best for readable text, accurate instructions, and consistent refinements.",
+    description: "Best for exact multilingual text and physically connected, jewelry-ready lettering.",
     modelLabel: "Nano Banana 2",
     badge: "Best for text"
   },
