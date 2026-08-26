@@ -75,6 +75,12 @@ export type GeneratedConcept = {
   createdAt: string;
 };
 
+export type CustomerContactDetails = {
+  name: string;
+  mobile: string;
+  email: string;
+};
+
 export type DesignBrief = {
   referenceId: string;
   sourceConceptId?: string;
@@ -95,6 +101,7 @@ export type DesignBrief = {
   recommendedDiscussionPoints: string[];
   revisionHistorySummary: string;
   disclaimer: string;
+  customerContact?: CustomerContactDetails;
 };
 
 export const emptyDesignProfile: DesignProfile = {

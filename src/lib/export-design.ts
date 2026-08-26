@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import type { DesignBrief, DesignProfile, GeneratedConcept } from "@/types/design";
+import type { CustomerContactDetails, DesignBrief, DesignProfile, GeneratedConcept } from "@/types/design";
 
 type DesignPdfOptions = {
   concept: GeneratedConcept;
@@ -92,6 +92,10 @@ async function createArabicDesignPdf({ concept, brief }: DesignPdfOptions) {
   );
   y += 18;
 
+  if (brief.customerContact) {
+    y = addCustomerContactBlock(pdf, brief.customerContact, y);
+  }
+
   const imageData = await imageToDataUrl(concept.url);
   const imageSize = 190;
   const imageX = width - pdfMargin - imageSize;
@@ -132,6 +136,82 @@ async function createArabicDesignPdf({ concept, brief }: DesignPdfOptions) {
   addArabicSection(pdf, "إخلاء المسؤولية", brief.disclaimer, y);
 
   return pdf;
+}
+
+function addCustomerContactBlock(pdf: jsPDF, customer: CustomerContactDetails, y: number) {
+  const width = pdf.internal.pageSize.getWidth();
+  const contentWidth = width - pdfMargin * 2;
+  const innerMargin = 14;
+  const innerWidth = contentWidth - innerMargin * 2;
+  const rows = [
+    { label: "اسم العميل", value: customer.name },
+    { label: "رقم الهاتف", value: customer.mobile },
+    { label: "البريد الإلكتروني", value: customer.email }
+  ].map((row) => ({
+    ...row,
+    valueLines: splitPdfText(pdf, row.value || "غير محدد", innerWidth, 10, containsArabic(row.value))
+  }));
+  const titleHeight = 18;
+  const labelHeight = 14;
+  const valueLineHeight = 14;
+  const rowGap = 6;
+  const boxHeight =
+    innerMargin * 2 +
+    titleHeight +
+    rows.reduce((height, row) => height + labelHeight + row.valueLines.length * valueLineHeight + rowGap, 0);
+
+  if (remainingPdfPageHeight(pdf, y) < boxHeight) {
+    y = addPdfPage(pdf);
+  }
+
+  pdf.setFillColor(18, 18, 20);
+  pdf.setDrawColor(53, 48, 39);
+  pdf.roundedRect(pdfMargin, y, contentWidth, boxHeight, 9, 9, "FD");
+
+  let contentY = y + innerMargin + 10;
+  contentY = writePdfLines(
+    pdf,
+    ["بيانات العميل"],
+    pdfMargin + innerMargin,
+    contentY,
+    innerWidth,
+    titleHeight,
+    12,
+    [215, 196, 154],
+    true,
+    700
+  );
+
+  for (const row of rows) {
+    contentY = writePdfLines(
+      pdf,
+      [row.label],
+      pdfMargin + innerMargin,
+      contentY,
+      innerWidth,
+      labelHeight,
+      9,
+      [160, 166, 176],
+      true,
+      700
+    );
+    contentY = writePdfLines(
+      pdf,
+      row.valueLines,
+      pdfMargin + innerMargin,
+      contentY,
+      innerWidth,
+      valueLineHeight,
+      10,
+      [245, 247, 250],
+      containsArabic(row.value),
+      400,
+      "right"
+    );
+    contentY += rowGap;
+  }
+
+  return y + boxHeight + 18;
 }
 
 export async function downloadWorkshopPng({
@@ -289,14 +369,18 @@ function writePdfLines(
   fontSize: number,
   color: [number, number, number],
   forceRtl = false,
-  fontWeight = 400
+  fontWeight = 400,
+  latinAlignment: "left" | "right" = "left"
 ) {
   for (const line of lines) {
     if (forceRtl || containsArabic(line)) {
       const lineCanvas = renderBrowserTextLine(line, maxWidth, lineHeight, fontSize, color, forceRtl, fontWeight);
       pdf.addImage(lineCanvas, "PNG", x, y - fontSize, maxWidth, lineHeight, undefined, "FAST");
     } else {
-      pdf.text(line, x, y);
+      pdf.setFont("helvetica", fontWeight >= 700 ? "bold" : "normal");
+      pdf.setFontSize(fontSize);
+      pdf.setTextColor(...color);
+      pdf.text(line, latinAlignment === "right" ? x + maxWidth : x, y, { align: latinAlignment });
     }
     y += lineHeight;
   }

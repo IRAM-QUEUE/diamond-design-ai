@@ -50,6 +50,7 @@ import {
   type ChatApiResponse,
   type ChatImageContext,
   type ChatMessage,
+  type CustomerContactDetails,
   type DesignBrief,
   type ConversationStage,
   type DesignProfile,
@@ -102,6 +103,8 @@ type UsageState = {
   monthlyRemaining: number;
 };
 
+type HandoffIntent = "prepare_brief" | "send_to_shop";
+
 export default function ChatPage() {
   const { user, getAccessToken } = useAuth();
   const { t } = useLanguage();
@@ -121,6 +124,7 @@ export default function ChatPage() {
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [finalizeCandidate, setFinalizeCandidate] = useState<GeneratedConcept | null>(null);
+  const [handoffIntent, setHandoffIntent] = useState<HandoffIntent>("prepare_brief");
   const [finalizedConceptId, setFinalizedConceptId] = useState("");
   const [designBrief, setDesignBrief] = useState<DesignBrief | null>(null);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
@@ -762,7 +766,10 @@ export default function ChatPage() {
     setUploadError("");
   }
 
-  async function requestDesignBrief(conceptToFinalize: GeneratedConcept) {
+  async function requestDesignBrief(
+    conceptToFinalize: GeneratedConcept,
+    customerContact: CustomerContactDetails
+  ) {
     if (!conceptToFinalize || isGeneratingBrief) return;
 
     setError("");
@@ -793,12 +800,13 @@ export default function ChatPage() {
       if (!isFullyArabicDesignBrief(payload.brief)) {
         throw new Error("The workshop brief could not be converted fully to Arabic. Please try again.");
       }
-      setDesignBrief(payload.brief);
+      const completedBrief = { ...payload.brief, customerContact };
+      setDesignBrief(completedBrief);
       if (payload.sessionId) setSessionId(payload.sessionId);
       if (payload.demoMode) {
         setError("Demo mode generated a placeholder workshop brief because OpenAI is not configured.");
       }
-      return payload.brief;
+      return completedBrief;
     } catch (briefError) {
       setError(briefError instanceof Error ? briefError.message : "The design brief could not be generated.");
       return null;
@@ -807,20 +815,41 @@ export default function ChatPage() {
     }
   }
 
-  async function finalizeDesign(conceptToFinalize = finalizeCandidate) {
+  async function finalizeDesign(
+    customerContact: CustomerContactDetails,
+    conceptToFinalize = finalizeCandidate
+  ) {
     if (!conceptToFinalize) return;
-    await requestDesignBrief(conceptToFinalize);
+
+    if (
+      designBrief &&
+      designBrief.sourceConceptId === conceptToFinalize.id &&
+      isFullyArabicDesignBrief(designBrief)
+    ) {
+      setFinalizedConceptId(conceptToFinalize.id);
+      setSelectedConceptId(conceptToFinalize.id);
+      setDesignBrief({ ...designBrief, customerContact });
+      setFinalizeCandidate(null);
+      return;
+    }
+
+    await requestDesignBrief(conceptToFinalize, customerContact);
   }
 
   async function ensureArabicDesignBrief(concept: GeneratedConcept) {
     if (
       designBrief &&
       designBrief.sourceConceptId === concept.id &&
-      isFullyArabicDesignBrief(designBrief)
+      isFullyArabicDesignBrief(designBrief) &&
+      hasCompleteCustomerContact(designBrief.customerContact)
     ) {
       return designBrief;
     }
-    return requestDesignBrief(concept);
+
+    setHandoffIntent("prepare_brief");
+    setFinalizeCandidate(concept);
+    setError("Enter the customer name and mobile number before exporting the workshop PDF.");
+    return null;
   }
 
   function createNewRevision(concept: GeneratedConcept) {
@@ -887,6 +916,7 @@ export default function ChatPage() {
     setComparisonOpen(false);
     setUploadOpen(false);
     setFinalizeCandidate(null);
+    setHandoffIntent("prepare_brief");
     setFinalizedConceptId("");
     setDesignBrief(null);
     setIsGeneratingBrief(false);
@@ -972,7 +1002,14 @@ export default function ChatPage() {
           onGenerate={() => void generateConcepts()}
           onUpload={() => setUploadOpen(true)}
           onSelect={setSelectedConceptId}
-          onPrepareBrief={(concept) => setFinalizeCandidate(concept)}
+          onPrepareBrief={(concept) => {
+            setHandoffIntent("prepare_brief");
+            setFinalizeCandidate(concept);
+          }}
+          onSendToShop={(concept) => {
+            setHandoffIntent("send_to_shop");
+            setFinalizeCandidate(concept);
+          }}
           onDownloadPdf={() => {
             if (finalizedConcept) {
               void (async () => {
@@ -1038,11 +1075,9 @@ export default function ChatPage() {
         }}
         onSendToShop={(concept) => {
           setPreviewConcept(null);
-          if (concept.id === finalizedConceptId && designBrief) {
-            setSelectedConceptId(concept.id);
-            return;
-          }
-          void finalizeDesign(concept);
+          setSelectedConceptId(concept.id);
+          setHandoffIntent("send_to_shop");
+          setFinalizeCandidate(concept);
         }}
         onEdit={(concept) => {
           reuseConceptInAtelier(concept);
@@ -1051,12 +1086,20 @@ export default function ChatPage() {
       />
 
       <ComparisonDialog concepts={comparisonConcepts} open={comparisonOpen} onOpenChange={setComparisonOpen} onImageError={() => void refreshSessionImages()} />
-      <FinalizeDesignDialog
+      <CustomerDetailsDialog
         concept={finalizeCandidate}
+        intent={handoffIntent}
+        email={user?.email ?? ""}
+        initialContact={
+          designBrief && designBrief.sourceConceptId === finalizeCandidate?.id
+            ? designBrief.customerContact
+            : undefined
+        }
+        isSubmitting={isGeneratingBrief}
         onOpenChange={(open) => {
-          if (!open) setFinalizeCandidate(null);
+          if (!open && !isGeneratingBrief) setFinalizeCandidate(null);
         }}
-        onConfirm={() => void finalizeDesign()}
+        onConfirm={(customerContact) => void finalizeDesign(customerContact)}
         onImageError={() => void refreshSessionImages()}
       />
       <UploadReferenceDialog
@@ -1731,6 +1774,7 @@ function StudioPanel({
   onUpload,
   onSelect,
   onPrepareBrief,
+  onSendToShop,
   onDownloadPdf,
   onPrint
 }: {
@@ -1750,6 +1794,7 @@ function StudioPanel({
   onUpload: () => void;
   onSelect: (id: string) => void;
   onPrepareBrief: (concept: GeneratedConcept) => void;
+  onSendToShop: (concept: GeneratedConcept) => void;
   onDownloadPdf: () => void;
   onPrint: () => void;
 }) {
@@ -1849,7 +1894,7 @@ function StudioPanel({
                       {t("Print", "طباعة")}
                     </Button>
                   </div>
-                  <Button className="w-full" variant="outline" disabled title="Manufacturer connection coming soon">
+                  <Button className="w-full" variant="outline" onClick={() => onSendToShop(finalizedConcept)}>
                     <Store className="h-4 w-4" />
                     {t("Send to shop", "إرسال إلى المتجر")}
                   </Button>
@@ -2101,27 +2146,73 @@ function UploadReferenceDialog({
   );
 }
 
-function FinalizeDesignDialog({
+function CustomerDetailsDialog({
   concept,
+  intent,
+  email,
+  initialContact,
+  isSubmitting,
   onOpenChange,
   onConfirm,
   onImageError
 }: {
   concept: GeneratedConcept | null;
+  intent: HandoffIntent;
+  email: string;
+  initialContact?: CustomerContactDetails;
+  isSubmitting: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: (customerContact: CustomerContactDetails) => void;
   onImageError: () => void;
 }) {
+  const [name, setName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [validationError, setValidationError] = useState("");
+
+  useEffect(() => {
+    if (!concept) return;
+    setName(initialContact?.name ?? "");
+    setMobile(initialContact?.mobile ?? "");
+    setValidationError("");
+  }, [concept, initialContact?.mobile, initialContact?.name]);
+
+  function submitCustomerDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedName = name.trim();
+    const normalizedMobile = mobile.trim();
+    const digitCount = normalizedMobile.match(/\p{Number}/gu)?.length ?? 0;
+
+    if (normalizedName.length < 2) {
+      setValidationError("Enter the customer's full name.");
+      return;
+    }
+
+    if (digitCount < 7 || digitCount > 15 || /[^\p{Number}\s+().-]/u.test(normalizedMobile)) {
+      setValidationError("Enter a valid mobile number containing 7 to 15 digits.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setValidationError("A signed-in email address is required.");
+      return;
+    }
+
+    setValidationError("");
+    onConfirm({ name: normalizedName, mobile: normalizedMobile, email: email.trim() });
+  }
+
+  const isShopHandoff = intent === "send_to_shop";
+
   return (
     <Dialog open={Boolean(concept)} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Choose This Final Direction</DialogTitle>
+          <DialogTitle>{isShopHandoff ? "Customer Details for Shop Handoff" : "Customer Details for the Brief"}</DialogTitle>
           <DialogDescription>
-            You are about to mark this study as the preferred diamond direction.
+            Enter the customer name and mobile number. The signed-in email is added automatically to the workshop PDF.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <form className="space-y-4" onSubmit={submitCustomerDetails}>
           {concept ? (
             <div className="overflow-hidden rounded-2xl border border-diamond-champagne/15 bg-black/30">
               <img src={concept.url} alt={concept.variationName} onError={onImageError} className="aspect-[4/3] w-full object-cover" />
@@ -2133,20 +2224,65 @@ function FinalizeDesignDialog({
               </div>
             </div>
           ) : null}
+          <div className="space-y-3">
+            <label className="block space-y-2 text-sm text-muted-foreground">
+              <span>Customer name</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                autoComplete="name"
+                maxLength={100}
+                disabled={isSubmitting}
+                className="w-full rounded-2xl border bg-background/70 px-4 py-3 text-sm text-white outline-none placeholder:text-muted-foreground focus:border-diamond-champagne/50 disabled:opacity-60"
+                placeholder="Enter the full name"
+                autoFocus
+              />
+            </label>
+            <label className="block space-y-2 text-sm text-muted-foreground">
+              <span>Mobile number</span>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={mobile}
+                onChange={(event) => setMobile(event.target.value)}
+                autoComplete="tel"
+                maxLength={32}
+                disabled={isSubmitting}
+                className="w-full rounded-2xl border bg-background/70 px-4 py-3 text-sm text-white outline-none placeholder:text-muted-foreground focus:border-diamond-champagne/50 disabled:opacity-60"
+                placeholder="e.g. +20 10 1234 5678"
+              />
+            </label>
+            <label className="block space-y-2 text-sm text-muted-foreground">
+              <span>Signed-in email</span>
+              <input
+                type="email"
+                value={email}
+                readOnly
+                aria-readonly="true"
+                className="w-full cursor-not-allowed rounded-2xl border bg-white/[0.035] px-4 py-3 text-sm text-white/75 outline-none"
+              />
+            </label>
+          </div>
+          {validationError ? (
+            <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive-foreground" role="alert">
+              {validationError}
+            </p>
+          ) : null}
           <div className="rounded-2xl border border-diamond-champagne/30 bg-diamond-champagne/10 p-4 text-sm leading-6 text-muted-foreground">
-            This does not create a manufacturing-ready file. Your jeweler will review and refine the design before
-            production.
+            These contact details are added to the PDF locally and are not included in the AI prompt. Your jeweler must
+            still review the design before production.
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={onConfirm}>
-              <Check className="h-4 w-4" />
-              Choose Direction
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <Sparkles className="h-4 w-4 animate-pulse" /> : isShopHandoff ? <Store className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+              {isSubmitting ? "Preparing..." : isShopHandoff ? "Continue" : "Prepare Brief"}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -2458,6 +2594,14 @@ function isFullyArabicDesignBrief(brief: DesignBrief) {
   ].join(" ");
 
   return /[\u0600-\u06ff]/.test(visibleText) && !/[a-z]/i.test(visibleText);
+}
+
+function hasCompleteCustomerContact(customerContact: CustomerContactDetails | undefined) {
+  return Boolean(
+    customerContact?.name.trim() &&
+      customerContact.mobile.trim() &&
+      customerContact.email.trim()
+  );
 }
 
 function isUserProvidedConcept(concept: GeneratedConcept) {
