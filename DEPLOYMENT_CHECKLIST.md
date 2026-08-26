@@ -18,7 +18,7 @@ Use this checklist for a production Vercel launch.
 - Add all variables from `.env.production.example` in Vercel.
 - Confirm `NEXT_PUBLIC_DEMO_MODE=false`.
 - Confirm server-only keys are not prefixed with `NEXT_PUBLIC_`.
-- Confirm `/api/health` reports the Replicate LLM, Replicate image service, and Supabase as configured.
+- Confirm `/api/health` reports OpenAI, Replicate, and Supabase as configured.
 
 ## Vercel Deployment
 

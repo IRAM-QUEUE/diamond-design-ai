@@ -11,7 +11,7 @@ A premium AI design workspace for diamond jewelry concepting, refinement, and wo
 - Radix UI
 - Framer Motion
 - Lucide Icons
-- OpenAI GPT-5.4 through Replicate for consultant chat and workshop briefs
+- OpenAI GPT for consultant chat and workshop briefs
 - Replicate FLUX.2 Pro for image generation
 - Replicate FLUX Kontext Pro for image editing
 - Replicate Krea 2 Medium for Arabic lettering jewelry generation/edit routing
@@ -34,8 +34,9 @@ http://localhost:3000
 ## Environment Variables
 
 ```bash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.4
 REPLICATE_API_TOKEN=
-REPLICATE_LLM_MODEL=openai/gpt-5.4
 NEXT_PUBLIC_DEMO_MODE=false
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
@@ -43,13 +44,13 @@ SUPABASE_SERVICE_ROLE_KEY=
 ESTIMATED_COST_REPLICATE_FLUX_2_PRO_IMAGE=0.04
 ESTIMATED_COST_REPLICATE_FLUX_KONTEXT_PRO_EDIT=0.04
 ESTIMATED_COST_REPLICATE_KREA_2_MEDIUM_IMAGE=0.04
-ESTIMATED_COST_REPLICATE_LLM_CHAT=0.01
-ESTIMATED_COST_REPLICATE_LLM_DESIGN_BRIEF=0.02
+ESTIMATED_COST_OPENAI_CHAT=0.01
+ESTIMATED_COST_OPENAI_DESIGN_BRIEF=0.02
 ```
 
-`REPLICATE_API_TOKEN` and `SUPABASE_SERVICE_ROLE_KEY` are server-side only. Never expose either secret in browser code. `NEXT_PUBLIC_DEMO_MODE=true` enables clearly labeled placeholder concepts/briefs if provider keys are unavailable. Real API calls require Supabase sign-in and usage-limit checks.
+`OPENAI_API_KEY`, `REPLICATE_API_TOKEN`, and `SUPABASE_SERVICE_ROLE_KEY` are server-side only. Never expose the service role key in browser code. `NEXT_PUBLIC_DEMO_MODE=true` enables clearly labeled placeholder concepts/briefs if provider keys are unavailable. Real API calls require Supabase sign-in and usage-limit checks.
 
-The LLM defaults to Replicate's official `openai/gpt-5.4` model. JSON responses are normalized and validated server-side, with one automatic repair attempt when a model response is malformed.
+Note: the app defaults to `OPENAI_MODEL=gpt-5.4` as requested. If your OpenAI account does not have access to that model string, set `OPENAI_MODEL` in `.env.local` to an available GPT model before the demo.
 
 ## Main Demo Flows
 
@@ -198,7 +199,7 @@ Admins can view total users, successful/failed/reserved image generations and ed
 3. Set `NEXT_PUBLIC_DEMO_MODE=false` for production.
 4. Deploy the Next.js app.
 5. Apply Supabase migrations from `supabase/migrations`.
-6. Verify `/api/health` reports the Replicate LLM, Replicate image service, and Supabase as configured.
+6. Verify `/api/health` reports Supabase, OpenAI, and Replicate as configured.
 7. Verify the `design-images` bucket is private.
 8. Sign in once with the intended admin email and run the admin SQL above.
 9. Run the launch tests in `DEPLOYMENT_CHECKLIST.md`.
@@ -247,8 +248,8 @@ npm run build
 
 Manual checks before launch:
 
-- Signed-out `POST /api/chat` with Replicate configured returns `401`.
-- Signed-out `POST /api/design-brief` with Replicate configured returns `401`.
+- Signed-out `POST /api/chat` with real OpenAI configured returns `401`.
+- Signed-out `POST /api/design-brief` with real OpenAI configured returns `401`.
 - Over-limit users receive `429` before Replicate is called.
 - `profiles.is_blocked=true` users cannot generate or edit images.
 - Successful generation/edit usage events move from `reserved` to `succeeded`.

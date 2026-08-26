@@ -796,7 +796,7 @@ export default function ChatPage() {
       setDesignBrief(payload.brief);
       if (payload.sessionId) setSessionId(payload.sessionId);
       if (payload.demoMode) {
-        setError("Demo mode generated a placeholder workshop brief because Replicate is not configured.");
+        setError("Demo mode generated a placeholder workshop brief because OpenAI is not configured.");
       }
       return payload.brief;
     } catch (briefError) {

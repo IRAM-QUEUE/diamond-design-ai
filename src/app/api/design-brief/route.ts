@@ -13,7 +13,7 @@ import {
   requireAuthenticatedUser
 } from "@/lib/supabase-server";
 import { requireRateLimit } from "@/lib/rate-limit";
-import { ReplicateLlmProvider } from "@/services/llm";
+import { MissingOpenAiApiKeyError, OpenAiLlmProvider } from "@/services/llm";
 import type { ChatMessage, DesignBrief, DesignProfile, GeneratedConcept } from "@/types/design";
 
 export const runtime = "nodejs";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const accessDenied = requireAiAccess(auth);
     if (accessDenied) return accessDenied;
 
-    if (serverEnv.demoMode && !serverEnv.replicateApiToken) {
+    if (serverEnv.demoMode && !serverEnv.openaiApiKey) {
       return NextResponse.json({ brief: createDemoBrief(profile, body.finalizedConcept, referenceId, language), demoMode: true });
     }
 
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     let brief: DesignBrief;
 
     try {
-      const provider = new ReplicateLlmProvider();
+      const provider = new OpenAiLlmProvider();
       const messages = [
         {
           role: "system" as const,
@@ -85,9 +85,7 @@ export async function POST(request: Request) {
       ];
       const completion = await provider.complete({
         responseFormat: "json",
-        reasoningEffort: "none",
-        verbosity: "low",
-        maxCompletionTokens: 4_500,
+        temperature: 0.25,
         messages
       });
       brief = normalizeBrief(JSON.parse(completion.content), referenceId, body.finalizedConcept.id, profile, language);
@@ -95,9 +93,7 @@ export async function POST(request: Request) {
       if (!isFullyArabicBrief(brief)) {
         const correctedCompletion = await provider.complete({
           responseFormat: "json",
-          reasoningEffort: "none",
-          verbosity: "low",
-          maxCompletionTokens: 4_500,
+          temperature: 0,
           messages: [
             {
               role: "system",
@@ -127,13 +123,13 @@ export async function POST(request: Request) {
         userId: auth.user.id,
         sessionId,
         eventType: "design_brief",
-        provider: "replicate",
-        model: serverEnv.replicateLlmModel,
+        provider: "openai",
+        model: serverEnv.openaiModel,
         units: 0,
-        estimatedCost: estimatedCosts.replicateLlmDesignBrief,
+        estimatedCost: estimatedCosts.openAiDesignBrief,
         status: "failed",
         latencyMs: Date.now() - startedAt,
-        errorCode: "REPLICATE_LLM_REQUEST_FAILED",
+        errorCode: "OPENAI_REQUEST_FAILED",
         metadata: { referenceId }
       });
 
@@ -177,10 +173,10 @@ export async function POST(request: Request) {
       sessionId,
       designImageId: finalImageId,
       eventType: "design_brief",
-      provider: "replicate",
-      model: serverEnv.replicateLlmModel,
+      provider: "openai",
+      model: serverEnv.openaiModel,
       units: 0,
-      estimatedCost: estimatedCosts.replicateLlmDesignBrief,
+      estimatedCost: estimatedCosts.openAiDesignBrief,
       status: "succeeded",
       latencyMs: Date.now() - startedAt,
       metadata: { referenceId }
@@ -188,6 +184,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ brief, sessionId });
   } catch (error) {
+    if (error instanceof MissingOpenAiApiKeyError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 503 }
+      );
+    }
+
     return handleApiError(error, "The design brief could not be generated. Please try again.");
   }
 }

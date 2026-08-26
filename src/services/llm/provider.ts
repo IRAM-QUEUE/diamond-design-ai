@@ -5,15 +5,10 @@ export type LlmMessage = {
   content: string;
 };
 
-export type LlmReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
-export type LlmVerbosity = "low" | "medium" | "high";
-
 export type LlmCompletionRequest = {
   messages: LlmMessage[];
+  temperature?: number;
   responseFormat?: "text" | "json";
-  reasoningEffort?: LlmReasoningEffort;
-  verbosity?: LlmVerbosity;
-  maxCompletionTokens?: number;
 };
 
 export type LlmCompletionResponse = {
