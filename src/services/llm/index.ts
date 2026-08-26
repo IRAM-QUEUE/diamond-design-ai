@@ -3,6 +3,8 @@ export type {
   LlmCompletionResponse,
   LlmMessage,
   LlmProvider,
-  LlmRole
+  LlmReasoningEffort,
+  LlmRole,
+  LlmVerbosity
 } from "./provider";
-export { MissingOpenAiApiKeyError, OpenAiLlmProvider } from "./openai";
+export { normalizeJsonObjectResponse, ReplicateLlmError, ReplicateLlmProvider } from "./replicate";

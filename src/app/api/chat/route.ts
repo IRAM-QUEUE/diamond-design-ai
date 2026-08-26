@@ -6,7 +6,7 @@ import { diamondConsultantSystemPrompt } from "@/lib/diamond-consultant-prompt";
 import { normalizeDesignProfile, normalizeStage } from "@/lib/design-profile";
 import { requireRateLimit } from "@/lib/rate-limit";
 import { logUsageEvent, requireAuthenticatedUser, requireImageCredits } from "@/lib/supabase-server";
-import { MissingOpenAiApiKeyError, OpenAiLlmProvider } from "@/services/llm";
+import { ReplicateLlmProvider } from "@/services/llm";
 import type { ChatAction, ChatApiRequest, ChatApiResponse, ChatImageContext, ChatMessage } from "@/types/design";
 
 export const runtime = "nodejs";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const usageAccess = await requireImageCredits(auth);
     if (usageAccess instanceof NextResponse) return usageAccess;
 
-    if (serverEnv.demoMode && !serverEnv.openaiApiKey) {
+    if (serverEnv.demoMode && !serverEnv.replicateApiToken) {
       return NextResponse.json(createDemoChatResponse(body.designProfile));
     }
 
@@ -41,10 +41,12 @@ export async function POST(request: Request) {
     let completion;
 
     try {
-      const provider = new OpenAiLlmProvider();
+      const provider = new ReplicateLlmProvider();
       completion = await provider.complete({
         responseFormat: "json",
-        temperature: 0.35,
+        reasoningEffort: "none",
+        verbosity: "low",
+        maxCompletionTokens: 2_500,
         messages: [
           { role: "system", content: diamondConsultantSystemPrompt },
           {
@@ -64,13 +66,13 @@ export async function POST(request: Request) {
       await logUsageEvent({
         userId: auth.user.id,
         eventType: "chat",
-        provider: "openai",
-        model: serverEnv.openaiModel,
+        provider: "replicate",
+        model: serverEnv.replicateLlmModel,
         units: 0,
-        estimatedCost: estimatedCosts.openAiChat,
+        estimatedCost: estimatedCosts.replicateLlmChat,
         status: "failed",
         latencyMs: Date.now() - startedAt,
-        errorCode: "OPENAI_REQUEST_FAILED",
+        errorCode: "REPLICATE_LLM_REQUEST_FAILED",
         metadata: { messageCount: messages.length }
       });
 
@@ -88,10 +90,10 @@ export async function POST(request: Request) {
     await logUsageEvent({
       userId: auth.user.id,
       eventType: "chat",
-      provider: "openai",
-      model: serverEnv.openaiModel,
+      provider: "replicate",
+      model: serverEnv.replicateLlmModel,
       units: 0,
-      estimatedCost: estimatedCosts.openAiChat,
+      estimatedCost: estimatedCosts.replicateLlmChat,
       status: "succeeded",
       latencyMs: Date.now() - startedAt,
       metadata: { messageCount: messages.length }
@@ -108,15 +110,6 @@ export async function POST(request: Request) {
       action: normalizeChatAction(parsed.action, images)
     } satisfies ChatApiResponse);
   } catch (error) {
-    if (error instanceof MissingOpenAiApiKeyError) {
-      return NextResponse.json(
-        {
-          error: error.message
-        },
-        { status: 503 }
-      );
-    }
-
     return handleApiError(error, "The consultation could not continue. Please try again.");
   }
 }
@@ -253,7 +246,7 @@ function createDemoChatResponse(profileInput: unknown): ChatApiResponse {
 
   return {
     assistantMessage:
-      "Demo mode is active because OpenAI is not configured. I have prepared a sample luxury diamond direction so you can continue the presentation safely.",
+      "Demo mode is active because Replicate is not configured. I have prepared a sample luxury diamond direction so you can continue the presentation safely.",
     updatedDesignProfile,
     stage: "ready_to_generate",
     suggestedActions: ["Generate demo concepts", "Make it more minimal", "Change to rose gold"],

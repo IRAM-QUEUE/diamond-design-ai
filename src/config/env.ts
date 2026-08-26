@@ -1,7 +1,6 @@
 export const serverEnv = {
-  openaiApiKey: process.env.OPENAI_API_KEY?.trim() ?? "",
-  openaiModel: process.env.OPENAI_MODEL?.trim() || "gpt-5.4",
   replicateApiToken: process.env.REPLICATE_API_TOKEN?.trim() ?? "",
+  replicateLlmModel: process.env.REPLICATE_LLM_MODEL?.trim() || "openai/gpt-5.4",
   demoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "",
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "",
@@ -15,7 +14,7 @@ export type EnvironmentStatus = {
   status: "ok" | "missing";
   environment: RuntimeEnvironment;
   supabase: "configured" | "missing";
-  openai: "configured" | "missing";
+  llm: "configured" | "missing";
   replicate: "configured" | "missing";
   demoMode: boolean;
   missing: string[];
@@ -23,8 +22,6 @@ export type EnvironmentStatus = {
 };
 
 const requiredProductionEnv = [
-  "OPENAI_API_KEY",
-  "OPENAI_MODEL",
   "REPLICATE_API_TOKEN",
   "NEXT_PUBLIC_SITE_URL",
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -49,7 +46,7 @@ export function getEnvironmentStatus(): EnvironmentStatus {
     status: missing.length || (environment === "production" && serverEnv.demoMode) ? "missing" : "ok",
     environment,
     supabase: serverEnv.supabaseUrl && serverEnv.supabaseAnonKey && serverEnv.supabaseServiceRoleKey ? "configured" : "missing",
-    openai: serverEnv.openaiApiKey && serverEnv.openaiModel ? "configured" : "missing",
+    llm: serverEnv.replicateApiToken && serverEnv.replicateLlmModel ? "configured" : "missing",
     replicate: serverEnv.replicateApiToken ? "configured" : "missing",
     demoMode: serverEnv.demoMode,
     missing,
@@ -74,23 +71,12 @@ export function validateProductionEnvironment() {
 
 export class MissingEnvironmentVariableError extends Error {
   constructor(
-    readonly variableName: "OPENAI_API_KEY" | "REPLICATE_API_TOKEN" | "PRODUCTION_ENV",
+    readonly variableName: "REPLICATE_API_TOKEN" | "PRODUCTION_ENV",
     message: string
   ) {
     super(message);
     this.name = "MissingEnvironmentVariableError";
   }
-}
-
-export function requireOpenAiApiKey() {
-  if (!serverEnv.openaiApiKey) {
-    throw new MissingEnvironmentVariableError(
-      "OPENAI_API_KEY",
-      "OpenAI API key is missing. Add OPENAI_API_KEY to .env.local and restart the server."
-    );
-  }
-
-  return serverEnv.openaiApiKey;
 }
 
 export function requireReplicateApiToken() {

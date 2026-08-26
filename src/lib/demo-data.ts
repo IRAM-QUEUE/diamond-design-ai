@@ -71,7 +71,7 @@ export function createDemoBrief(
     referenceId,
     sourceConceptId: finalizedConcept.id,
     sessionSummary:
-      "Demo mode summary: a luxury diamond concept was selected for workshop review. Configure OpenAI for production copy.",
+      "Demo mode summary: a luxury diamond concept was selected for workshop review. Configure Replicate for production copy.",
     customerDesignSummary: "A selected diamond jewelry concept prepared as a visual reference for jeweler discussion.",
     jewelryType: profile.jewelryType,
     occasion: profile.occasion,
