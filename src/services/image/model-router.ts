@@ -1,5 +1,5 @@
 import { normalizeImageModelPreference } from "@/lib/design-profile";
-import { requiresArabicJewelryLettering, requiresJewelryLettering } from "@/lib/personalization";
+import { requiresArabicJewelryLettering } from "@/lib/personalization";
 import type { DesignProfile, ImageModelPreference } from "@/types/design";
 import { imageModels, type ActiveReplicateImageModel } from "./models";
 
@@ -30,7 +30,6 @@ export type ResolvedImageModel = {
   modelIdentifier: ActiveReplicateImageModel;
   operation: ImageOperation;
   wasArabicOverride: boolean;
-  wasLetteringOverride: boolean;
 };
 
 export function resolveImageModel({
@@ -52,12 +51,7 @@ export function resolveImageModel({
     updatedDesignProfile,
     editInstruction
   });
-  const needsLetteringModel = requiresJewelryLettering({
-    designProfile,
-    updatedDesignProfile,
-    editInstruction
-  });
-  const effectivePreference: ImageModelPreference = needsLetteringModel
+  const effectivePreference: ImageModelPreference = wasArabicOverride
     ? "names_lettering"
     : normalizedPreference;
 
@@ -66,7 +60,6 @@ export function resolveImageModel({
     effectivePreference,
     modelIdentifier: IMAGE_MODEL_REGISTRY[effectivePreference].modelIdentifier,
     operation,
-    wasArabicOverride,
-    wasLetteringOverride: needsLetteringModel && normalizedPreference !== "names_lettering"
+    wasArabicOverride
   };
 }

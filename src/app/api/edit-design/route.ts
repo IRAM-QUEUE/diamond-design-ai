@@ -74,8 +74,7 @@ export async function POST(request: Request) {
     const routingMetadata = {
       modelPreference: routing.preference,
       effectiveModelPreference: routing.effectivePreference,
-      wasArabicOverride: routing.wasArabicOverride,
-      wasLetteringOverride: routing.wasLetteringOverride
+      wasArabicOverride: routing.wasArabicOverride
     };
     const prompt = buildEditPrompt({
       designProfile: updatedDesignProfile,
