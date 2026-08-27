@@ -2253,26 +2253,12 @@ function CustomerDetailsDialog({
                 placeholder="e.g. +20 10 1234 5678"
               />
             </label>
-            <label className="block space-y-2 text-sm text-muted-foreground">
-              <span>Signed-in email</span>
-              <input
-                type="email"
-                value={email}
-                readOnly
-                aria-readonly="true"
-                className="w-full cursor-not-allowed rounded-2xl border bg-white/[0.035] px-4 py-3 text-sm text-white/75 outline-none"
-              />
-            </label>
           </div>
           {validationError ? (
             <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive-foreground" role="alert">
               {validationError}
             </p>
           ) : null}
-          <div className="rounded-2xl border border-diamond-champagne/30 bg-diamond-champagne/10 p-4 text-sm leading-6 text-muted-foreground">
-            These contact details are added to the PDF locally and are not included in the AI prompt. Your jeweler must
-            still review the design before production.
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
