@@ -42,6 +42,7 @@ import { downloadDesignPdf, printDesignPdf } from "@/lib/export-design";
 import { clearDiamondSession, loadDiamondSession, saveDiamondSession } from "@/lib/session-store";
 import { cn } from "@/lib/utils";
 import { getJewelryFontById } from "@/config/jewelry-fonts";
+import { getJewelryLetteringStyleById } from "@/config/jewelry-lettering-styles";
 import { publicEnv } from "@/config/public-env";
 import { BrowserLocalImageStorage, StorageValidationError, type StoredImage } from "@/services/storage";
 import { useLanguage } from "@/lib/language";
@@ -91,6 +92,7 @@ const profileLabels: Array<[keyof Omit<DesignProfile, "readyForGeneration">, str
   ["personalizationText", "Name Text", "Personalization"],
   ["personalizationScript", "Script", "Personalization"],
   ["fontPreference", "Font", "Personalization"],
+  ["letteringStylePreference", "Lettering Style", "Personalization"],
   ["notes", "Notes", "Notes"]
 ];
 
@@ -141,7 +143,7 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRefreshInFlightRef = useRef(false);
   const inspirationLoadedRef = useRef(false);
-  const fontLoadedRef = useRef(false);
+  const letteringSelectionLoadedRef = useRef(false);
   const storage = useMemo(() => new BrowserLocalImageStorage(), []);
   const usageLimitReached = Boolean(usage && (usage.dailyRemaining <= 0 || usage.monthlyRemaining <= 0));
   const usageLimitMessage = usageLimitReached
@@ -385,33 +387,47 @@ export default function ChatPage() {
   }, [sessionLoaded]);
 
   useEffect(() => {
-    if (!sessionLoaded || fontLoadedRef.current || typeof window === "undefined") return;
+    if (!sessionLoaded || letteringSelectionLoadedRef.current || typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    const fontId = params.get("font");
-    const selectedFont = getJewelryFontById(fontId);
-    if (!selectedFont) return;
+    const selectedFont = getJewelryFontById(params.get("font"));
+    const selectedLetteringStyle = getJewelryLetteringStyleById(params.get("letteringStyle"));
+    if (!selectedFont && !selectedLetteringStyle) return;
 
-    fontLoadedRef.current = true;
+    letteringSelectionLoadedRef.current = true;
+    const supportsArabic = Boolean(selectedFont?.supportsArabic || selectedLetteringStyle?.supportsArabic);
+    const supportsLatin = Boolean(selectedFont?.supportsLatin || selectedLetteringStyle?.supportsLatin);
+    const selectionNotes = [
+      selectedFont ? `Selected font: ${selectedFont.name} (${selectedFont.category})` : "",
+      selectedLetteringStyle ? `Selected lettering style: ${selectedLetteringStyle.name}` : ""
+    ].filter(Boolean);
+
     setDesignProfile((current) =>
       normalizeDesignProfile({
         ...current,
-        fontPreference: selectedFont.name,
+        fontPreference: selectedFont?.name || current.fontPreference,
+        letteringStylePreference: selectedLetteringStyle?.name || current.letteringStylePreference,
         personalizationScript:
           current.personalizationScript ||
-          (selectedFont.supportsArabic ? "Arabic or English, exact spelling required" : "English or Latin"),
-        notes: [
-          ...current.notes,
-          `Selected font: ${selectedFont.name} (${selectedFont.category})`
-        ]
+          (supportsArabic && supportsLatin
+            ? "Arabic or English, exact spelling required"
+            : supportsArabic
+              ? "Arabic"
+              : "English or Latin"),
+        notes: [...current.notes, ...selectionNotes]
       })
     );
+
+    const selectedDirections = [
+      selectedFont ? `${selectedFont.name} as the font` : "",
+      selectedLetteringStyle ? `${selectedLetteringStyle.name} as the jewelry construction style` : ""
+    ].filter(Boolean);
     setMessages((current) => [
       ...current,
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `I've set ${selectedFont.name} as your lettering preference. Tell me the exact name or inscription, and if it is Arabic, please type the exact Arabic spelling you want in the jewelry.`,
+        content: `I've set ${selectedDirections.join(" and ")}. Tell me the exact name or inscription, and if it is Arabic, please type the exact Arabic spelling you want in the jewelry.`,
         createdAt: new Date().toISOString()
       }
     ]);
@@ -2513,7 +2529,8 @@ function getCompletion(profile: DesignProfile) {
     profile.budgetRange,
     profile.personalizationText,
     profile.personalizationScript,
-    profile.fontPreference
+    profile.fontPreference,
+    profile.letteringStylePreference
   ];
   const base = Math.round((fields.filter(Boolean).length / fields.length) * 85);
   return Math.min(100, base + (profile.readyForGeneration ? 15 : 0));

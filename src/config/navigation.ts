@@ -20,8 +20,8 @@ export const navigationItems = [
     icon: Gem
   },
   {
-    title: "Fonts",
-    titleAr: "خطوط",
+    title: "Fonts & Styles",
+    titleAr: "الخطوط والأساليب",
     href: "/fonts",
     icon: LetterText
   },

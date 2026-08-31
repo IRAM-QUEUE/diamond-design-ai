@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Amiri,
@@ -17,6 +18,7 @@ import {
 } from "next/font/google";
 import { ArrowRight, Gem, LetterText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { jewelryLetteringStyles } from "@/config/jewelry-lettering-styles";
 import { cn } from "@/lib/utils";
 import { jewelryFonts, type JewelryFontCategory } from "@/config/jewelry-fonts";
 
@@ -65,14 +67,14 @@ export default function FontsPage() {
           <div className="max-w-3xl">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/[0.035] px-4 py-2 text-xs uppercase tracking-[0.24em] text-diamond-champagne/75 shadow-[inset_0_0_0_1px_rgba(215,196,154,0.10)]">
               <LetterText className="h-3.5 w-3.5" />
-              Fonts for personalized jewelry
+              Fonts &amp; Styles for personalized jewelry
             </div>
             <h1 className="font-display text-4xl font-medium leading-tight text-diamond-pearl md:text-5xl">
-              Choose a lettering style before the atelier begins.
+              Choose the letterforms and the way they become jewelry.
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
-              Browse curated Arabic and Latin fonts for name pendants, bracelets, rings, and engraved pieces. Select a font,
-              then continue to chat so the agent can use it as part of the design direction.
+              Pair a curated Arabic or Latin font with a jewelry construction style for name pendants, bracelets, rings,
+              and engraved pieces. Each selection becomes part of the agent&apos;s design direction.
             </p>
           </div>
           <div className="rounded-2xl bg-diamond-champagne/10 p-4 text-sm leading-6 text-diamond-champagne shadow-[inset_0_0_0_1px_rgba(215,196,154,0.18)] lg:max-w-sm">
@@ -80,6 +82,75 @@ export default function FontsPage() {
             is only a helper.
           </div>
         </div>
+      </section>
+
+      <section id="styles" className="space-y-5 scroll-mt-24">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-3">
+            <Gem className="h-4 w-4 text-diamond-champagne" />
+            <h2 className="font-display text-3xl font-medium text-diamond-pearl">Styles</h2>
+          </div>
+          <p className="mt-3 text-sm leading-7 text-muted-foreground md:text-base">
+            Choose how the lettering is constructed as a physical piece—from flowing calligraphy to pavé or framed
+            openwork. This choice is independent from the font.
+          </p>
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {jewelryLetteringStyles.map((style) => (
+            <article
+              key={style.id}
+              className="group overflow-hidden rounded-[1.55rem] bg-[linear-gradient(145deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[inset_0_1px_0_rgba(215,196,154,0.10),0_24px_80px_rgba(0,0,0,0.34)]"
+            >
+              <div className="relative aspect-square overflow-hidden bg-[#080808]">
+                <Image
+                  src={style.previewImage}
+                  alt={`${style.name} jewelry lettering style preview`}
+                  fill
+                  sizes="(min-width: 1280px) 30vw, (min-width: 768px) 45vw, 100vw"
+                  className="object-cover transition duration-700 group-hover:scale-[1.025]"
+                />
+                <div className="absolute inset-x-0 top-0 flex flex-wrap gap-2 bg-gradient-to-b from-black/70 to-transparent p-4 pb-10">
+                  {style.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-black/55 px-3 py-1 text-xs text-diamond-champagne shadow-[inset_0_0_0_1px_rgba(215,196,154,0.18)] backdrop-blur-sm"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <div>
+                  <h3 className="font-display text-2xl font-medium text-diamond-pearl">{style.name}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{style.note}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {style.supportsArabic ? <span>Arabic</span> : null}
+                  {style.supportsLatin ? <span>Latin</span> : null}
+                </div>
+                <Button asChild className="w-full">
+                  <Link href={`/chat?letteringStyle=${encodeURIComponent(style.id)}`}>
+                    <Sparkles className="h-4 w-4" />
+                    Design with this style
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="fonts" className="scroll-mt-24 rounded-[1.6rem] bg-white/[0.025] p-5 shadow-[inset_0_0_0_1px_rgba(215,196,154,0.08)] md:p-6">
+        <div className="flex items-center gap-3">
+          <LetterText className="h-4 w-4 text-diamond-champagne" />
+          <h2 className="font-display text-3xl font-medium text-diamond-pearl">Fonts</h2>
+        </div>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
+          Choose the exact letterform family. The font controls the character shapes; the style above controls how those
+          shapes are built into wearable jewelry.
+        </p>
       </section>
 
       {categories.map((category) => {

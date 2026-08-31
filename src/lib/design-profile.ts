@@ -81,7 +81,8 @@ function completedCoreFields(profile: DesignProfile) {
     profile.budgetRange,
     profile.personalizationText,
     profile.personalizationScript,
-    profile.fontPreference
+    profile.fontPreference,
+    profile.letteringStylePreference
   ].filter(Boolean).length;
 }
 

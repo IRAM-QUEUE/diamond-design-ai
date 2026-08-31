@@ -7,7 +7,7 @@ import { normalizeDesignProfile, normalizeStage } from "@/lib/design-profile";
 import { requireRateLimit } from "@/lib/rate-limit";
 import { logUsageEvent, requireAuthenticatedUser, requireImageCredits } from "@/lib/supabase-server";
 import { MissingOpenAiApiKeyError, OpenAiLlmProvider } from "@/services/llm";
-import type { ChatAction, ChatApiRequest, ChatApiResponse, ChatImageContext, ChatMessage } from "@/types/design";
+import type { ChatAction, ChatApiRequest, ChatApiResponse, ChatImageContext, ChatMessage, DesignProfile } from "@/types/design";
 
 export const runtime = "nodejs";
 
@@ -78,10 +78,16 @@ export async function POST(request: Request) {
     }
 
     const parsed = parseModelResponse(completion.content);
-    const updatedDesignProfile = normalizeDesignProfile({
-      ...(typeof parsed.updatedDesignProfile === "object" && parsed.updatedDesignProfile !== null
+    const modelProfile: Partial<DesignProfile> =
+      typeof parsed.updatedDesignProfile === "object" && parsed.updatedDesignProfile !== null
         ? parsed.updatedDesignProfile
-        : {}),
+        : {};
+    const updatedDesignProfile = normalizeDesignProfile({
+      ...modelProfile,
+      letteringStylePreference:
+        typeof modelProfile.letteringStylePreference === "string"
+          ? modelProfile.letteringStylePreference.trim() || designProfile.letteringStylePreference
+          : designProfile.letteringStylePreference,
       imageModelPreference: designProfile.imageModelPreference
     });
     const stage = normalizeStage(parsed.stage, updatedDesignProfile);

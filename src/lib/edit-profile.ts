@@ -1,5 +1,6 @@
 import type { DesignProfile } from "@/types/design";
 import { jewelryFonts } from "@/config/jewelry-fonts";
+import { jewelryLetteringStyles } from "@/config/jewelry-lettering-styles";
 import { containsArabicText } from "@/lib/personalization";
 
 export function updateDesignProfileFromEdit(profile: DesignProfile, instruction: string): DesignProfile {
@@ -35,6 +36,9 @@ export function updateDesignProfileFromEdit(profile: DesignProfile, instruction:
 
   const requestedFont = jewelryFonts.find((font) => text.includes(font.name.toLowerCase()));
   if (requestedFont) next.fontPreference = requestedFont.name;
+
+  const requestedLetteringStyle = jewelryLetteringStyles.find((style) => text.includes(style.name.toLowerCase()));
+  if (requestedLetteringStyle) next.letteringStylePreference = requestedLetteringStyle.name;
 
   if (text.includes("arabic")) next.personalizationScript = "Arabic";
   if (text.includes("english") || text.includes("latin")) next.personalizationScript = "English or Latin";

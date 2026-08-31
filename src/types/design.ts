@@ -19,6 +19,7 @@ export type DesignProfile = {
   personalizationText: string;
   personalizationScript: string;
   fontPreference: string;
+  letteringStylePreference: string;
   imageModelPreference: ImageModelPreference;
   notes: string[];
   readyForGeneration: boolean;
@@ -117,6 +118,7 @@ export const emptyDesignProfile: DesignProfile = {
   personalizationText: "",
   personalizationScript: "",
   fontPreference: "",
+  letteringStylePreference: "",
   imageModelPreference: "default",
   notes: [],
   readyForGeneration: false

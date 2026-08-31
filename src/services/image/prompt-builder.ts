@@ -1,5 +1,6 @@
 import { containsArabicText } from "@/lib/personalization";
 import { jewelryFonts } from "@/config/jewelry-fonts";
+import { jewelryLetteringStyles } from "@/config/jewelry-lettering-styles";
 import type { DesignProfile, ImageModelPreference } from "@/types/design";
 import type { JewelryImagePrompt } from "./provider";
 
@@ -141,8 +142,9 @@ function buildGenerationPrompt(
 }
 
 function describeProfile(profile: DesignProfile) {
-  const customerNotes = profile.notes.filter((note) => !isStructuredFontSelectionNote(note));
+  const customerNotes = profile.notes.filter((note) => !isStructuredLetteringSelectionNote(note));
   const fontStyle = describeFontStyle(profile.fontPreference);
+  const constructionStyle = describeLetteringConstructionStyle(profile.letteringStylePreference);
   const parts = [
     profile.jewelryType ? `jewelry type: ${profile.jewelryType}` : "",
     profile.occasion ? `occasion: ${profile.occasion}` : "",
@@ -156,6 +158,9 @@ function describeProfile(profile: DesignProfile) {
     profile.personalizationText ? `personalized name or inscription text: ${profile.personalizationText}` : "",
     profile.personalizationScript ? `personalization script/language: ${profile.personalizationScript}` : "",
     fontStyle ? `lettering style direction (visual treatment only, not text to render): ${fontStyle}` : "",
+    constructionStyle
+      ? `lettering jewelry construction direction (physical treatment, not text to render): ${constructionStyle}`
+      : "",
     customerNotes.length ? `customer notes: ${customerNotes.join("; ")}` : ""
   ].filter(Boolean);
 
@@ -163,8 +168,9 @@ function describeProfile(profile: DesignProfile) {
 }
 
 function describePersonalization(profile: DesignProfile) {
-  if (!profile.personalizationText && !profile.fontPreference) return "";
+  if (!profile.personalizationText && !profile.fontPreference && !profile.letteringStylePreference) return "";
   const fontStyle = describeFontStyle(profile.fontPreference);
+  const constructionStyle = describeLetteringConstructionStyle(profile.letteringStylePreference);
 
   return [
     "Integrate the personalization as wearable fine-jewelry construction rather than flat printed text.",
@@ -174,6 +180,9 @@ function describePersonalization(profile: DesignProfile) {
     profile.personalizationScript ? `The inscription script is ${profile.personalizationScript}.` : "",
     fontStyle
       ? `Use this visual letterform direction without rendering any style label: ${fontStyle}.`
+      : "",
+    constructionStyle
+      ? `Build the lettering with this selected physical jewelry treatment without rendering its style name: ${constructionStyle}.`
       : ""
   ]
     .filter(Boolean)
@@ -191,6 +200,13 @@ function buildExactLetteringDirective(profile: DesignProfile) {
     "Use believable fine-jewelry metal thickness, clean edges, load-bearing joins, and secure attachment points.",
     "Every visible letter component must belong to one coherent wearable assembly; no piece may hover, float, balance loosely, or remain mechanically unsupported."
   ];
+  const constructionStyle = describeLetteringConstructionStyle(profile.letteringStylePreference);
+
+  if (constructionStyle) {
+    base.push(
+      `Follow this selected jewelry construction style while preserving exact spelling and legibility: ${constructionStyle}.`
+    );
+  }
 
   if (usesEngravedOrInlaidLettering(profile)) {
     base.push(
@@ -226,7 +242,14 @@ function buildExactLetteringDirective(profile: DesignProfile) {
 }
 
 function usesEngravedOrInlaidLettering(profile: DesignProfile) {
-  const designContext = [profile.jewelryType, profile.style, profile.setting, profile.bandStyle, ...profile.notes]
+  const designContext = [
+    profile.jewelryType,
+    profile.style,
+    profile.setting,
+    profile.bandStyle,
+    profile.letteringStylePreference,
+    ...profile.notes
+  ]
     .join(" ")
     .toLowerCase();
 
@@ -247,8 +270,20 @@ function describeFontStyle(fontPreference: string) {
   return `${selectedFont.category}; ${selectedFont.tags.join(", ").toLowerCase()}; ${selectedFont.note}`;
 }
 
-function isStructuredFontSelectionNote(note: string) {
-  return /^(?:selected|requested)\s+(?:font|lettering style)\s*:/i.test(note.trim());
+function describeLetteringConstructionStyle(letteringStylePreference: string) {
+  const normalizedPreference = letteringStylePreference.trim().toLowerCase();
+  if (!normalizedPreference) return "";
+
+  const selectedStyle = jewelryLetteringStyles.find((style) => style.name.toLowerCase() === normalizedPreference);
+  if (!selectedStyle) {
+    return `${letteringStylePreference.trim()} as a physical jewelry construction treatment`;
+  }
+
+  return `${selectedStyle.name}; ${selectedStyle.constructionDirection}`;
+}
+
+function isStructuredLetteringSelectionNote(note: string) {
+  return /^(?:selected|requested)\s+(?:font|lettering style|lettering construction style)\s*:/i.test(note.trim());
 }
 
 function buildImageTextConstraint(profile: DesignProfile, removeExistingText: boolean) {
