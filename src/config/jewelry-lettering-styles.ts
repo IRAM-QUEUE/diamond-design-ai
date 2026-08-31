@@ -33,6 +33,28 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
     supportsLatin: true
   },
   {
+    id: "stacked-arabic-calligraphy",
+    name: "Stacked Arabic Calligraphy",
+    previewImage: "/lettering-styles/stacked-arabic-calligraphy.png",
+    tags: ["Intertwined", "Layered", "Statement"],
+    note: "Arabic letters are rearranged across several interwoven levels to create a wide statement-name silhouette.",
+    constructionDirection:
+      "a wide stacked Arabic name composition with calligraphic strokes rearranged across multiple intertwined levels rather than one ordinary baseline, a bold flat-cut silhouette, a sweeping lower flourish, deliberate open counters, exact readable spelling, and two secure side chain attachments",
+    supportsArabic: true,
+    supportsLatin: false
+  },
+  {
+    id: "vertical-calligraphic-monogram",
+    name: "Vertical Calligraphic Monogram",
+    previewImage: "/lettering-styles/vertical-calligraphic-monogram.png",
+    tags: ["Compact", "Vertical", "Emblem"],
+    note: "The name is composed into a compact upright emblem for distinctive pendants, charms, and signet-like pieces.",
+    constructionDirection:
+      "a compact vertical Arabic calligraphic monogram that reorganizes the exact name into a tall emblem while preserving recognizable letter anatomy and reading order, with interlocked load-bearing strokes, controlled negative space, one strong centered bail, and every dot or mark secured by a discreet bridge or shared rear support",
+    supportsArabic: true,
+    supportsLatin: false
+  },
+  {
     id: "minimal-signature",
     name: "Minimal Signature",
     previewImage: "/lettering-styles/minimal-signature.png",
