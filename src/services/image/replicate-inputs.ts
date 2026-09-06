@@ -3,15 +3,15 @@ import { imageModels, type ActiveReplicateImageModel } from "./models";
 export type ReplicateModelInput = Record<string, unknown>;
 
 type InputBuilder = {
-  generation: (prompt: string) => ReplicateModelInput;
+  generation: (prompt: string, referenceImageUrl?: string) => ReplicateModelInput;
   editing: (prompt: string, imageUrl: string) => ReplicateModelInput;
 };
 
 const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
   [imageModels.flux2Pro]: {
-    generation: (prompt) => ({
+    generation: (prompt, referenceImageUrl) => ({
       prompt,
-      input_images: [],
+      input_images: referenceImageUrl ? [referenceImageUrl] : [],
       aspect_ratio: "1:1",
       resolution: "1 MP",
       output_format: "webp",
@@ -29,9 +29,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
     })
   },
   [imageModels.gptImage2]: {
-    generation: (prompt) => ({
+    generation: (prompt, referenceImageUrl) => ({
       prompt,
-      input_images: [],
+      input_images: referenceImageUrl ? [referenceImageUrl] : [],
       aspect_ratio: "1:1",
       quality: "medium",
       number_of_images: 1,
@@ -53,9 +53,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
     })
   },
   [imageModels.nanoBanana2]: {
-    generation: (prompt) => ({
+    generation: (prompt, referenceImageUrl) => ({
       prompt,
-      image_input: [],
+      image_input: referenceImageUrl ? [referenceImageUrl] : [],
       aspect_ratio: "1:1",
       resolution: "1K",
       output_format: "png",
@@ -73,9 +73,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
     })
   },
   [imageModels.seedream5Lite]: {
-    generation: (prompt) => ({
+    generation: (prompt, referenceImageUrl) => ({
       prompt,
-      image_input: [],
+      image_input: referenceImageUrl ? [referenceImageUrl] : [],
       aspect_ratio: "1:1",
       size: "2K",
       sequential_image_generation: "disabled",
@@ -94,8 +94,12 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
   }
 };
 
-export function buildReplicateGenerationInput(model: ActiveReplicateImageModel, prompt: string) {
-  return inputBuilders[model].generation(prompt);
+export function buildReplicateGenerationInput(
+  model: ActiveReplicateImageModel,
+  prompt: string,
+  referenceImageUrl?: string
+) {
+  return inputBuilders[model].generation(prompt, referenceImageUrl);
 }
 
 export function buildReplicateEditInput(model: ActiveReplicateImageModel, prompt: string, imageUrl: string) {

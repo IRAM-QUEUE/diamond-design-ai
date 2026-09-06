@@ -21,12 +21,14 @@ const directions: Direction[] = [
 
 export function buildDiamondConceptPrompts(
   profile: DesignProfile,
-  preference: ImageModelPreference = "default"
+  preference: ImageModelPreference = "default",
+  referenceImageUrl?: string
 ): JewelryImagePrompt[] {
   return directions.map((direction) => ({
     variationName: direction.variationName,
     description: direction.description,
-    prompt: buildGenerationPrompt(profile, direction, preference)
+    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(referenceImageUrl)),
+    referenceImageUrl
   }));
 }
 
@@ -107,16 +109,25 @@ export function buildEditPrompt({
 function buildGenerationPrompt(
   profile: DesignProfile,
   direction: Direction,
-  preference: ImageModelPreference
+  preference: ImageModelPreference,
+  hasStyleReference: boolean
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
   const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
+  const styleReferenceDirective = hasStyleReference
+    ? [
+        "Use the supplied style reference image only as a visual guide for the lettering composition and physical jewelry construction.",
+        "Closely follow its overall silhouette, compactness, stroke relationships, overlap pattern, negative-space rhythm, and attachment logic.",
+        "Do not copy, trace, or reproduce the reference inscription or any literal letters, stones, metal color, chain, background, or photography; render only the customer's exact authoritative inscription and requested materials."
+      ].join(" ")
+    : "";
 
   if (preference === "creative_exploration") {
     return [
       `Create one imaginative but wearable photorealistic luxury jewelry concept based on ${direction.emphasis}.`,
+      styleReferenceDirective,
       profileDetails ? `The design should follow these customer details: ${profileDetails}.` : "",
       personalization,
       letteringDirective,
@@ -130,6 +141,7 @@ function buildGenerationPrompt(
 
   return [
     `Create one ${direction.emphasis}.`,
+    styleReferenceDirective,
     profileDetails ? `Design details: ${profileDetails}.` : "",
     personalization,
     letteringDirective,

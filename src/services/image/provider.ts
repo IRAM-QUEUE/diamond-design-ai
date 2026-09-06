@@ -6,6 +6,7 @@ export type JewelryImagePrompt = {
   variationName: string;
   description: string;
   model?: ActiveReplicateImageModel;
+  referenceImageUrl?: string;
 };
 
 export type GeneratedImage = {
