@@ -10,6 +10,12 @@ type Direction = {
   emphasis: string;
 };
 
+type GenerationReferences = {
+  styleImageUrl?: string;
+  inscriptionImageUrl?: string;
+  stylePreviewInscription?: string;
+};
+
 const directions: Direction[] = [
   {
     variationName: "Luxury Concept",
@@ -22,13 +28,21 @@ const directions: Direction[] = [
 export function buildDiamondConceptPrompts(
   profile: DesignProfile,
   preference: ImageModelPreference = "default",
-  referenceImageUrl?: string
+  references: GenerationReferences = {}
 ): JewelryImagePrompt[] {
+  const referenceImageUrls = [references.styleImageUrl, references.inscriptionImageUrl].filter(
+    (url): url is string => Boolean(url)
+  );
+
   return directions.map((direction) => ({
     variationName: direction.variationName,
     description: direction.description,
-    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(referenceImageUrl)),
-    referenceImageUrl
+    prompt: buildGenerationPrompt(profile, direction, preference, {
+      hasStyleReference: Boolean(references.styleImageUrl),
+      hasInscriptionReference: Boolean(references.inscriptionImageUrl),
+      stylePreviewInscription: references.stylePreviewInscription
+    }),
+    referenceImageUrls
   }));
 }
 
@@ -110,24 +124,22 @@ function buildGenerationPrompt(
   profile: DesignProfile,
   direction: Direction,
   preference: ImageModelPreference,
-  hasStyleReference: boolean
+  references: {
+    hasStyleReference: boolean;
+    hasInscriptionReference: boolean;
+    stylePreviewInscription?: string;
+  }
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
   const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
-  const styleReferenceDirective = hasStyleReference
-    ? [
-        "Use the supplied style reference image only as a visual guide for the lettering composition and physical jewelry construction.",
-        "Closely follow its overall silhouette, compactness, stroke relationships, overlap pattern, negative-space rhythm, and attachment logic.",
-        "Do not copy, trace, or reproduce the reference inscription or any literal letters, stones, metal color, chain, background, or photography; render only the customer's exact authoritative inscription and requested materials."
-      ].join(" ")
-    : "";
+  const referenceDirective = buildGenerationReferenceDirective(profile, references);
 
   if (preference === "creative_exploration") {
     return [
       `Create one imaginative but wearable photorealistic luxury jewelry concept based on ${direction.emphasis}.`,
-      styleReferenceDirective,
+      referenceDirective,
       profileDetails ? `The design should follow these customer details: ${profileDetails}.` : "",
       personalization,
       letteringDirective,
@@ -141,7 +153,7 @@ function buildGenerationPrompt(
 
   return [
     `Create one ${direction.emphasis}.`,
-    styleReferenceDirective,
+    referenceDirective,
     profileDetails ? `Design details: ${profileDetails}.` : "",
     personalization,
     letteringDirective,
@@ -151,6 +163,46 @@ function buildGenerationPrompt(
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function buildGenerationReferenceDirective(
+  profile: DesignProfile,
+  references: {
+    hasStyleReference: boolean;
+    hasInscriptionReference: boolean;
+    stylePreviewInscription?: string;
+  }
+) {
+  const exactText = profile.personalizationText.trim();
+  const instructions: string[] = [];
+
+  if (references.hasStyleReference) {
+    instructions.push(
+      "REFERENCE IMAGE 1 is a STYLE-ONLY guide for the lettering composition and physical jewelry construction.",
+      "Closely follow its overall silhouette, compactness, stroke relationships, overlap pattern, negative-space rhythm, and attachment logic.",
+      "Do not copy, trace, preserve, or reproduce its inscription or any literal letters, stones, metal color, chain, background, or photography."
+    );
+  }
+
+  if (references.hasInscriptionReference && exactText) {
+    const inscriptionReferenceNumber = references.hasStyleReference ? 2 : 1;
+    instructions.push(
+      `REFERENCE IMAGE ${inscriptionReferenceNumber} is the AUTHORITATIVE SPELLING GUIDE for the exact inscription "${exactText}".`,
+      references.hasStyleReference
+        ? `Use every character shown in REFERENCE IMAGE ${inscriptionReferenceNumber}, in its correct order and joining behavior, while adapting those exact characters into the jewelry construction style from REFERENCE IMAGE 1.`
+        : `Use every character shown in REFERENCE IMAGE ${inscriptionReferenceNumber}, in its correct order and joining behavior, as the exact inscription to construct in jewelry.`,
+      `REFERENCE IMAGE ${inscriptionReferenceNumber} supplies character identity only; do not copy its flat black text presentation or white background.`
+    );
+  }
+
+  const previewInscription = references.stylePreviewInscription?.trim();
+  if (references.hasStyleReference && previewInscription && exactText && previewInscription !== exactText) {
+    instructions.push(
+      `The sample inscription "${previewInscription}" visible in REFERENCE IMAGE 1 is forbidden in the output. Replace it completely; the finished jewelry must read only "${exactText}" and must contain no remaining character from the sample unless that character is required by "${exactText}".`
+    );
+  }
+
+  return instructions.join(" ");
 }
 
 function describeProfile(profile: DesignProfile) {

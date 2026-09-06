@@ -25,6 +25,7 @@ import {
   buildDiamondConceptPrompts,
   resolveImageModel
 } from "@/services/image";
+import { createInscriptionReferenceDataUrl } from "@/services/image/inscription-reference";
 import type { ChatMessage, DesignProfile } from "@/types/design";
 
 export const runtime = "nodejs";
@@ -76,11 +77,21 @@ export async function POST(request: Request) {
     });
 
     const selectedModel = routing.modelIdentifier;
-    const styleReferenceImageUrl = resolveStyleReferenceImageUrl(request, designProfile.letteringStylePreference);
+    const selectedStyle = resolveSelectedLetteringStyle(designProfile.letteringStylePreference);
+    const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText);
+    const canSafelyUseStyleReference = !designProfile.personalizationText.trim() || Boolean(inscriptionImageUrl);
+    const styleImageUrl =
+      selectedStyle && canSafelyUseStyleReference
+        ? new URL(selectedStyle.previewImage, request.url).toString()
+        : undefined;
     const prompts = buildDiamondConceptPrompts(
       designProfile,
       routing.effectivePreference,
-      styleReferenceImageUrl
+      {
+        styleImageUrl,
+        inscriptionImageUrl,
+        stylePreviewInscription: selectedStyle?.previewInscription
+      }
     ).map((prompt) => ({
       ...prompt,
       model: selectedModel
@@ -186,12 +197,9 @@ export function GET() {
   return methodNotAllowed();
 }
 
-function resolveStyleReferenceImageUrl(request: Request, letteringStylePreference: string) {
+function resolveSelectedLetteringStyle(letteringStylePreference: string) {
   const normalizedPreference = letteringStylePreference.trim().toLowerCase();
   if (!normalizedPreference) return undefined;
 
-  const selectedStyle = jewelryLetteringStyles.find((style) => style.name.toLowerCase() === normalizedPreference);
-  if (!selectedStyle) return undefined;
-
-  return new URL(selectedStyle.previewImage, request.url).toString();
+  return jewelryLetteringStyles.find((style) => style.name.toLowerCase() === normalizedPreference);
 }

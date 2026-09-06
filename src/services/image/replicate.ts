@@ -53,7 +53,7 @@ export class ReplicateImageProvider implements ImageGenerationProvider {
     try {
       output = await withTimeout(
         this.client.run(model, {
-          input: buildReplicateGenerationInput(model, request.prompt, request.referenceImageUrl)
+          input: buildReplicateGenerationInput(model, request.prompt, request.referenceImageUrls)
         }) as Promise<ReplicateOutput>,
         requestTimeoutMs
       );

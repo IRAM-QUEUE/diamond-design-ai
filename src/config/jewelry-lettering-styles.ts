@@ -2,6 +2,7 @@ export type JewelryLetteringStyle = {
   id: string;
   name: string;
   previewImage: string;
+  previewInscription?: string;
   tags: string[];
   note: string;
   constructionDirection: string;
@@ -47,6 +48,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
     id: "vertical-calligraphic-monogram",
     name: "Vertical Calligraphic Monogram",
     previewImage: "/lettering-styles/vertical-calligraphic-monogram.png",
+    previewInscription: "نور",
     tags: ["Compact", "Vertical", "Emblem"],
     note: "The name is composed into a compact upright emblem for distinctive pendants, charms, and signet-like pieces.",
     constructionDirection:
