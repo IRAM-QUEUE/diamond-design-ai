@@ -2,7 +2,6 @@ export type JewelryLetteringStyle = {
   id: string;
   name: string;
   previewImage: string;
-  previewInscription?: string;
   tags: string[];
   note: string;
   constructionDirection: string;
@@ -48,11 +47,10 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
     id: "vertical-calligraphic-monogram",
     name: "Vertical Calligraphic Monogram",
     previewImage: "/lettering-styles/vertical-calligraphic-monogram.png",
-    previewInscription: "نور",
     tags: ["Compact", "Vertical", "Emblem"],
     note: "The name is composed into a compact upright emblem for distinctive pendants, charms, and signet-like pieces.",
     constructionDirection:
-      "a compact vertical Arabic calligraphic monogram that reorganizes the exact name into a tall emblem while preserving recognizable letter anatomy and reading order, with interlocked load-bearing strokes, controlled negative space, one strong centered bail, and every dot or mark secured by a discreet bridge or shared rear support",
+      "a compact upright Arabic calligraphic monogram that interweaves the entire exact right-to-left name into one seal-like emblem while preserving recognizable letter anatomy and reading order; do not stack separate letters in a literal top-to-bottom column; use interlocked load-bearing strokes, controlled negative space, one strong centered bail, and secure every dot or mark with a discreet bridge or shared rear support",
     supportsArabic: true,
     supportsLatin: false
   },
@@ -74,7 +72,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
     tags: ["Angular", "Architectural", "Contemporary"],
     note: "Precise angular geometry turns Arabic lettering into a bold architectural jewelry form.",
     constructionDirection:
-      "architectural Kufi-inspired Arabic lettering with precise angular strokes, stepped corners, rectangular geometry, a coherent structural baseline, and securely integrated dots and chain connections",
+      "transform every glyph of the customer's exact Arabic inscription into architectural Kufi-inspired lettering with precise angular strokes, stepped corners, rectangular geometry, a coherent structural baseline, and securely integrated dots and chain connections; preserve the requested word exactly and never substitute a generic Kufi sample word",
     supportsArabic: true,
     supportsLatin: false
   },

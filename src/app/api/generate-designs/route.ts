@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { jewelryLetteringStyles } from "@/config/jewelry-lettering-styles";
 import { serverEnv } from "@/config/env";
 import { estimatedImageCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
@@ -77,21 +76,11 @@ export async function POST(request: Request) {
     });
 
     const selectedModel = routing.modelIdentifier;
-    const selectedStyle = resolveSelectedLetteringStyle(designProfile.letteringStylePreference);
     const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText);
-    const canSafelyUseStyleReference = !designProfile.personalizationText.trim() || Boolean(inscriptionImageUrl);
-    const styleImageUrl =
-      selectedStyle && canSafelyUseStyleReference
-        ? new URL(selectedStyle.previewImage, request.url).toString()
-        : undefined;
     const prompts = buildDiamondConceptPrompts(
       designProfile,
       routing.effectivePreference,
-      {
-        styleImageUrl,
-        inscriptionImageUrl,
-        stylePreviewInscription: selectedStyle?.previewInscription
-      }
+      inscriptionImageUrl
     ).map((prompt) => ({
       ...prompt,
       model: selectedModel
@@ -195,11 +184,4 @@ export async function POST(request: Request) {
 
 export function GET() {
   return methodNotAllowed();
-}
-
-function resolveSelectedLetteringStyle(letteringStylePreference: string) {
-  const normalizedPreference = letteringStylePreference.trim().toLowerCase();
-  if (!normalizedPreference) return undefined;
-
-  return jewelryLetteringStyles.find((style) => style.name.toLowerCase() === normalizedPreference);
 }
