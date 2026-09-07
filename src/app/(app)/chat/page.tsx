@@ -14,6 +14,7 @@ import {
   Gem,
   Heart,
   ImagePlus,
+  Loader2,
   Printer,
   SendHorizontal,
   Sparkles,
@@ -134,6 +135,8 @@ export default function ChatPage() {
   const [pendingUpload, setPendingUpload] = useState<StoredImage | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [isAddingReference, setIsAddingReference] = useState(false);
+  const addingReferenceRef = useRef(false);
   const [editInstruction, setEditInstruction] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
@@ -703,6 +706,7 @@ export default function ChatPage() {
   }
 
   async function prepareUpload(file: File) {
+    if (addingReferenceRef.current || isProcessingUpload) return;
     setUploadError("");
     setIsProcessingUpload(true);
 
@@ -721,24 +725,29 @@ export default function ChatPage() {
   }
 
   async function confirmUpload() {
-    if (!pendingUpload) return;
+    if (!pendingUpload || isProcessingUpload || addingReferenceRef.current) return;
 
-    const id = crypto.randomUUID();
-    const uploadedConcept: GeneratedConcept = {
-      id,
-      url: pendingUpload.url,
-      version: 1,
-      parentId: null,
-      rootId: id,
-      variationName: "Uploaded Reference",
-      description: "Customer uploaded reference design",
-      prompt: "",
-      editInstruction: "",
-      createdAt: new Date().toISOString()
-    };
+    // Lock synchronously so rapid clicks cannot start another save before React renders.
+    addingReferenceRef.current = true;
+    setIsAddingReference(true);
+    setUploadError("");
 
-    let persistedConcept = uploadedConcept;
     try {
+      const id = crypto.randomUUID();
+      const uploadedConcept: GeneratedConcept = {
+        id,
+        url: pendingUpload.url,
+        version: 1,
+        parentId: null,
+        rootId: id,
+        variationName: "Uploaded Reference",
+        description: "Customer uploaded reference design",
+        prompt: "",
+        editInstruction: "",
+        createdAt: new Date().toISOString()
+      };
+
+      let persistedConcept = uploadedConcept;
       if (user) {
         const response = await fetch("/api/design-images", {
           method: "POST",
@@ -751,35 +760,37 @@ export default function ChatPage() {
         if (payload.sessionId) setSessionId(payload.sessionId);
         await refreshUsage();
       }
-    } catch (uploadIssue) {
-      setError(uploadIssue instanceof Error ? uploadIssue.message : "The uploaded reference could not be saved.");
-      return;
-    }
 
-    setGeneratedConcepts((current) => [...current, persistedConcept]);
-    setSelectedConceptId(persistedConcept.id);
-    setDesignBrief(null);
-    setFinalizedConceptId("");
-    setMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I've added your reference design. Tell me what you'd like to change - for example, the metal, diamond shape, band thickness, halo, or overall style.",
-        createdAt: new Date().toISOString()
-      }
-    ]);
-    setDesignProfile((current) =>
-      normalizeDesignProfile({
+      setGeneratedConcepts((current) => [...current, persistedConcept]);
+      setSelectedConceptId(persistedConcept.id);
+      setDesignBrief(null);
+      setFinalizedConceptId("");
+      setMessages((current) => [
         ...current,
-        notes: [...current.notes, "Uploaded reference design"],
-        readyForGeneration: current.readyForGeneration
-      })
-    );
-    setUploadOpen(false);
-    setPendingUpload(null);
-    setUploadError("");
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            "I've added your reference design. Tell me what you'd like to change - for example, the metal, diamond shape, band thickness, halo, or overall style.",
+          createdAt: new Date().toISOString()
+        }
+      ]);
+      setDesignProfile((current) =>
+        normalizeDesignProfile({
+          ...current,
+          notes: [...current.notes, "Uploaded reference design"],
+          readyForGeneration: current.readyForGeneration
+        })
+      );
+      setUploadOpen(false);
+      setPendingUpload(null);
+      setUploadError("");
+    } catch (uploadIssue) {
+      setUploadError(uploadIssue instanceof Error ? uploadIssue.message : "The uploaded reference could not be saved.");
+    } finally {
+      addingReferenceRef.current = false;
+      setIsAddingReference(false);
+    }
   }
 
   async function requestDesignBrief(
@@ -1123,7 +1134,9 @@ export default function ChatPage() {
         pendingUpload={pendingUpload}
         error={uploadError}
         isProcessing={isProcessingUpload}
+        isAdding={isAddingReference}
         onOpenChange={(open) => {
+          if (addingReferenceRef.current) return;
           setUploadOpen(open);
           if (!open) {
             setPendingUpload(null);
@@ -1133,6 +1146,7 @@ export default function ChatPage() {
         onFile={prepareUpload}
         onConfirm={confirmUpload}
         onCancel={() => {
+          if (addingReferenceRef.current) return;
           setUploadOpen(false);
           setPendingUpload(null);
           setUploadError("");
@@ -2040,6 +2054,7 @@ function UploadReferenceDialog({
   pendingUpload,
   error,
   isProcessing,
+  isAdding,
   onOpenChange,
   onFile,
   onConfirm,
@@ -2050,6 +2065,7 @@ function UploadReferenceDialog({
   pendingUpload: StoredImage | null;
   error: string;
   isProcessing: boolean;
+  isAdding: boolean;
   onOpenChange: (open: boolean) => void;
   onFile: (file: File) => void;
   onConfirm: () => void;
@@ -2057,8 +2073,10 @@ function UploadReferenceDialog({
   onBrokenImage: () => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const isBusy = isProcessing || isAdding;
 
   function handleFiles(files: FileList | null) {
+    if (isBusy) return;
     const file = files?.[0];
     if (file) onFile(file);
   }
@@ -2070,8 +2088,10 @@ function UploadReferenceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!isBusy) onOpenChange(nextOpen);
+    }}>
+      <DialogContent className="max-w-3xl" showCloseButton={!isBusy} aria-busy={isBusy}>
         <DialogHeader>
           <DialogTitle>Add a Reference Image</DialogTitle>
           <DialogDescription>
@@ -2083,17 +2103,19 @@ function UploadReferenceDialog({
           <label
             onDragOver={(event) => {
               event.preventDefault();
-              setIsDragging(true);
+              if (!isBusy) setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             className={cn(
               "flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-diamond-champagne/20 bg-black/25 p-8 text-center transition focus-within:ring-2 focus-within:ring-ring",
-              isDragging && "border-diamond-champagne bg-diamond-champagne/10"
+              isDragging && "border-diamond-champagne bg-diamond-champagne/10",
+              isBusy && "cursor-wait opacity-60"
             )}
           >
             <input
               type="file"
+              disabled={isBusy}
               accept="image/png,image/jpeg,image/webp"
               className="sr-only"
               onChange={(event) => handleFiles(event.target.files)}
@@ -2134,25 +2156,28 @@ function UploadReferenceDialog({
               </div>
             ) : null}
 
-            {isProcessing ? (
-              <div className="rounded-2xl border bg-white/[0.035] p-4">
+            {isBusy ? (
+              <div role="status" className="rounded-2xl border bg-white/[0.035] p-4">
                 <LoadingSkeleton className="mb-3 h-4 w-2/3" />
-                <p className="text-sm text-muted-foreground">Preparing your reference for the atelier...</p>
+                <p className="text-sm text-muted-foreground">
+                  {isAdding ? "Adding your reference to the chat..." : "Preparing your reference for the atelier..."}
+                </p>
               </div>
             ) : null}
 
             {error ? (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
+              <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
                 {error}
               </div>
             ) : null}
 
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={onCancel} disabled={isProcessing}>
+              <Button variant="secondary" onClick={onCancel} disabled={isBusy}>
                 Cancel
               </Button>
-              <Button onClick={onConfirm} disabled={!pendingUpload || isProcessing}>
-                Add Reference
+              <Button onClick={onConfirm} disabled={!pendingUpload || isBusy} aria-busy={isAdding}>
+                {isAdding ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                {isAdding ? "Adding..." : "Add Reference"}
               </Button>
             </div>
           </div>
