@@ -1,5 +1,7 @@
 # Shop handoff in Gmail
 
+This is the **legacy Gmail integration**. The current app submits directly to the admin orders inbox; see [WORKSHOP_ORDERS.md](WORKSHOP_ORDERS.md). Gmail authorization and recipient-email settings are no longer part of the customer/admin interface. Existing draft records are retained.
+
 The admin saves the receiving email in **Admin Usage Dashboard → Shop order email**.
 Customers choose **Send to shop**, confirm their details, connect their matching Gmail account, and prepare the draft. Gmail opens with subject **New Order**, the admin's recipient address, and exactly two attachments: the printable Arabic handover PDF and the selected image's preserved original (PNG). The customer clicks **Send** in Gmail. The application never calls a send-email endpoint.
 

@@ -34,7 +34,8 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
-import { GmailHandoffDialog } from "@/components/chat/gmail-handoff-dialog";
+import { CustomerDetailsDialog } from "@/components/chat/customer-details-dialog";
+import { submitWorkshopOrder, type HandoffReceipt } from "@/lib/submit-workshop-order";
 import { AdvancedImageSettings } from "@/components/chat/advanced-image-settings";
 import { useAuth } from "@/components/auth/auth-provider";
 import { normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
@@ -111,7 +112,7 @@ type UsageState = {
 type HandoffIntent = "prepare_brief" | "send_to_shop";
 
 export default function ChatPage() {
-  const { user, getAccessToken } = useAuth();
+  const { user, supabase, getAccessToken } = useAuth();
   const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([initialAssistantMessage]);
   const [designProfile, setDesignProfile] = useState<DesignProfile>(emptyDesignProfile);
@@ -129,7 +130,9 @@ export default function ChatPage() {
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [finalizeCandidate, setFinalizeCandidate] = useState<GeneratedConcept | null>(null);
-  const [gmailHandoff, setGmailHandoff] = useState<{ concept: GeneratedConcept; brief: DesignBrief } | null>(null);
+  const [handoffReceipt, setHandoffReceipt] = useState<HandoffReceipt | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [handoffProgress, setHandoffProgress] = useState("");
   const finalizingRef = useRef(false);
   const [handoffIntent, setHandoffIntent] = useState<HandoffIntent>("prepare_brief");
   const [finalizedConceptId, setFinalizedConceptId] = useState("");
@@ -808,7 +811,6 @@ export default function ChatPage() {
     setError("");
     setFinalizedConceptId(conceptToFinalize.id);
     setSelectedConceptId(conceptToFinalize.id);
-    setFinalizeCandidate(null);
     setIsGeneratingBrief(true);
 
     try {
@@ -854,6 +856,9 @@ export default function ChatPage() {
   ) {
     if (!conceptToFinalize || finalizingRef.current) return;
     finalizingRef.current = true;
+    setIsFinalizing(true);
+    setError("");
+    setHandoffProgress("Preparing your workshop brief...");
     try {
       let completedBrief: DesignBrief | null | undefined;
       if (designBrief && designBrief.sourceConceptId === conceptToFinalize.id && isFullyArabicDesignBrief(designBrief)) {
@@ -861,15 +866,21 @@ export default function ChatPage() {
         setFinalizedConceptId(conceptToFinalize.id);
         setSelectedConceptId(conceptToFinalize.id);
         setDesignBrief(completedBrief);
-        setFinalizeCandidate(null);
       } else {
         completedBrief = await requestDesignBrief(conceptToFinalize, customerContact);
       }
       if (completedBrief && handoffIntent === "send_to_shop") {
-        setGmailHandoff({ concept: conceptToFinalize, brief: completedBrief });
+        if (!supabase) throw new Error("Sign in before submitting your handover.");
+        const receipt = await submitWorkshopOrder({ concept: conceptToFinalize, brief: completedBrief }, supabase, getAccessToken, setHandoffProgress);
+        setHandoffReceipt(receipt);
       }
+      if (completedBrief) setFinalizeCandidate(null);
+    } catch (issue) {
+      setError(issue instanceof Error ? issue.message : "The handover could not be submitted. Please retry.");
     } finally {
       finalizingRef.current = false;
+      setIsFinalizing(false);
+      setHandoffProgress("");
     }
   }
 
@@ -955,7 +966,7 @@ export default function ChatPage() {
     setUploadOpen(false);
     setFinalizeCandidate(null);
     setHandoffIntent("prepare_brief");
-    setGmailHandoff(null);
+    setHandoffReceipt(null);
     setFinalizedConceptId("");
     setDesignBrief(null);
     setIsGeneratingBrief(false);
@@ -1125,7 +1136,17 @@ export default function ChatPage() {
       />
 
       <ComparisonDialog concepts={comparisonConcepts} open={comparisonOpen} onOpenChange={setComparisonOpen} onImageError={() => void refreshSessionImages()} />
-      <GmailHandoffDialog handoff={gmailHandoff} onClose={() => setGmailHandoff(null)} />
+      <Dialog open={Boolean(handoffReceipt)} onOpenChange={(open) => { if (!open) setHandoffReceipt(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-diamond-champagne/15 text-diamond-champagne"><Check className="h-6 w-6" /></div>
+            <DialogTitle>Handover submitted</DialogTitle>
+            <DialogDescription>Your handover is now in the shop’s orders inbox, including the PDF, final image, and your contact details.</DialogDescription>
+          </DialogHeader>
+          <p className="rounded-2xl border p-4 text-center text-diamond-champagne">{handoffReceipt?.referenceId}</p>
+          <Button onClick={() => setHandoffReceipt(null)}>Done</Button>
+        </DialogContent>
+      </Dialog>
       <CustomerDetailsDialog
         concept={finalizeCandidate}
         intent={handoffIntent}
@@ -1135,9 +1156,11 @@ export default function ChatPage() {
             ? designBrief.customerContact
             : undefined
         }
-        isSubmitting={isGeneratingBrief}
+        isSubmitting={isFinalizing || isGeneratingBrief}
+        progress={handoffProgress}
+        error={error}
         onOpenChange={(open) => {
-          if (!open && !isGeneratingBrief) setFinalizeCandidate(null);
+          if (!open && !finalizingRef.current && !isGeneratingBrief) setFinalizeCandidate(null);
         }}
         onConfirm={(customerContact) => void finalizeDesign(customerContact)}
         onImageError={() => void refreshSessionImages()}
@@ -2200,133 +2223,6 @@ function UploadReferenceDialog({
   );
 }
 
-function CustomerDetailsDialog({
-  concept,
-  intent,
-  email,
-  initialContact,
-  isSubmitting,
-  onOpenChange,
-  onConfirm,
-  onImageError
-}: {
-  concept: GeneratedConcept | null;
-  intent: HandoffIntent;
-  email: string;
-  initialContact?: CustomerContactDetails;
-  isSubmitting: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (customerContact: CustomerContactDetails) => void;
-  onImageError: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [validationError, setValidationError] = useState("");
-
-  useEffect(() => {
-    if (!concept) return;
-    setName(initialContact?.name ?? "");
-    setMobile(initialContact?.mobile ?? "");
-    setValidationError("");
-  }, [concept, initialContact?.mobile, initialContact?.name]);
-
-  function submitCustomerDetails(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalizedName = name.trim();
-    const normalizedMobile = mobile.trim();
-    const digitCount = normalizedMobile.match(/\p{Number}/gu)?.length ?? 0;
-
-    if (normalizedName.length < 2) {
-      setValidationError("Enter the customer's full name.");
-      return;
-    }
-
-    if (digitCount < 7 || digitCount > 15 || /[^\p{Number}\s+().-]/u.test(normalizedMobile)) {
-      setValidationError("Enter a valid mobile number containing 7 to 15 digits.");
-      return;
-    }
-
-    if (!email.trim()) {
-      setValidationError("A signed-in email address is required.");
-      return;
-    }
-
-    setValidationError("");
-    onConfirm({ name: normalizedName, mobile: normalizedMobile, email: email.trim() });
-  }
-
-  const isShopHandoff = intent === "send_to_shop";
-
-  return (
-    <Dialog open={Boolean(concept)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isShopHandoff ? "Customer Details for Shop Handoff" : "Customer Details for the Brief"}</DialogTitle>
-          <DialogDescription>
-            Enter the customer name and mobile number. The signed-in email is added automatically to the workshop PDF.
-          </DialogDescription>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={submitCustomerDetails}>
-          {concept ? (
-            <div className="overflow-hidden rounded-2xl border border-diamond-champagne/15 bg-black/30">
-              <img src={concept.url} alt={concept.variationName} onError={onImageError} className="aspect-[4/3] w-full object-cover" />
-              <div className="p-4">
-                <p className="text-sm font-medium text-white">
-                  V{concept.version} - {concept.variationName}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{concept.description}</p>
-              </div>
-            </div>
-          ) : null}
-          <div className="space-y-3">
-            <label className="block space-y-2 text-sm text-muted-foreground">
-              <span>Customer name</span>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                autoComplete="name"
-                maxLength={100}
-                disabled={isSubmitting}
-                className="w-full rounded-2xl border bg-background/70 px-4 py-3 text-sm text-white outline-none placeholder:text-muted-foreground focus:border-diamond-champagne/50 disabled:opacity-60"
-                placeholder="Enter the full name"
-                autoFocus
-              />
-            </label>
-            <label className="block space-y-2 text-sm text-muted-foreground">
-              <span>Mobile number</span>
-              <input
-                type="tel"
-                inputMode="tel"
-                value={mobile}
-                onChange={(event) => setMobile(event.target.value)}
-                autoComplete="tel"
-                maxLength={32}
-                disabled={isSubmitting}
-                className="w-full rounded-2xl border bg-background/70 px-4 py-3 text-sm text-white outline-none placeholder:text-muted-foreground focus:border-diamond-champagne/50 disabled:opacity-60"
-                placeholder="e.g. +20 10 1234 5678"
-              />
-            </label>
-          </div>
-          {validationError ? (
-            <p className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive-foreground" role="alert">
-              {validationError}
-            </p>
-          ) : null}
-          <div className="grid grid-cols-2 gap-3">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Sparkles className="h-4 w-4 animate-pulse" /> : isShopHandoff ? <Store className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-              {isSubmitting ? "Preparing..." : isShopHandoff ? "Continue to Gmail" : "Prepare Brief"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function EditConceptDialog({
   concept,
