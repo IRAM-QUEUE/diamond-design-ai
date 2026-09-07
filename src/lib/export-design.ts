@@ -10,7 +10,14 @@ const pdfArabicFontName = "NotoSansArabic";
 const pdfArabicFontUrl = "/fonts/NotoSansArabic-Regular.ttf";
 const pdfMargin = 48;
 const pdfBottomMargin = 48;
-const pdfBodyLineHeight = 13;
+const pdfBodyLineHeight = 15;
+// Use a grayscale palette so downloaded and printed briefs stay legible with minimal ink.
+const pdfColors = {
+  heading: [25, 25, 25],
+  body: [40, 40, 40],
+  secondary: [85, 85, 85],
+  border: [195, 195, 195]
+} satisfies Record<string, [number, number, number]>;
 let pdfArabicFontLoadPromise: Promise<void> | null = null;
 
 export async function downloadDesignPdf(options: DesignPdfOptions) {
@@ -76,8 +83,7 @@ async function createArabicDesignPdf({ concept, brief }: DesignPdfOptions) {
   const contentWidth = width - pdfMargin * 2;
   let y = pdfMargin + 22;
 
-  paintPdfPage(pdf);
-  y = writePdfLines(pdf, ["ملخص تصميم الألماس"], pdfMargin, y, contentWidth, 30, 22, [255, 255, 255], true, 700);
+  y = writePdfLines(pdf, ["ملخص تصميم الألماس"], pdfMargin, y, contentWidth, 30, 22, pdfColors.heading, true, 700);
   y += 2;
   y = writePdfLines(
     pdf,
@@ -87,7 +93,7 @@ async function createArabicDesignPdf({ concept, brief }: DesignPdfOptions) {
     contentWidth,
     16,
     10,
-    [200, 205, 214],
+    pdfColors.secondary,
     true
   );
   y += 18;
@@ -115,9 +121,9 @@ async function createArabicDesignPdf({ concept, brief }: DesignPdfOptions) {
   let detailY = y + 12;
 
   for (const [label, value] of profileLines) {
-    detailY = writePdfLines(pdf, [label], detailX, detailY, detailWidth, 14, 10, [215, 196, 154], true, 700);
+    detailY = writePdfLines(pdf, [label], detailX, detailY, detailWidth, 14, 10, pdfColors.heading, true, 700);
     const lines = splitPdfText(pdf, value || "غير محدد", detailWidth, 9.5, true);
-    detailY = writePdfLines(pdf, lines, detailX, detailY, detailWidth, 12, 9.5, [245, 247, 250], true);
+    detailY = writePdfLines(pdf, lines, detailX, detailY, detailWidth, 12, 9.5, pdfColors.body, true);
     detailY += 7;
   }
 
@@ -164,9 +170,9 @@ function addCustomerContactBlock(pdf: jsPDF, customer: CustomerContactDetails, y
     y = addPdfPage(pdf);
   }
 
-  pdf.setFillColor(18, 18, 20);
-  pdf.setDrawColor(53, 48, 39);
-  pdf.roundedRect(pdfMargin, y, contentWidth, boxHeight, 9, 9, "FD");
+  pdf.setDrawColor(...pdfColors.border);
+  pdf.setLineWidth(0.5);
+  pdf.roundedRect(pdfMargin, y, contentWidth, boxHeight, 9, 9, "S");
 
   let contentY = y + innerMargin + 10;
   contentY = writePdfLines(
@@ -177,7 +183,7 @@ function addCustomerContactBlock(pdf: jsPDF, customer: CustomerContactDetails, y
     innerWidth,
     titleHeight,
     12,
-    [215, 196, 154],
+    pdfColors.heading,
     true,
     700
   );
@@ -191,7 +197,7 @@ function addCustomerContactBlock(pdf: jsPDF, customer: CustomerContactDetails, y
       innerWidth,
       labelHeight,
       9,
-      [160, 166, 176],
+      pdfColors.secondary,
       true,
       700
     );
@@ -203,7 +209,7 @@ function addCustomerContactBlock(pdf: jsPDF, customer: CustomerContactDetails, y
       innerWidth,
       valueLineHeight,
       10,
-      [245, 247, 250],
+      pdfColors.body,
       containsArabic(row.value),
       400,
       "right"
@@ -314,7 +320,7 @@ function addArabicSection(pdf: jsPDF, title: string, text: string, y: number) {
       contentWidth,
       19,
       13,
-      [215, 196, 154],
+      pdfColors.heading,
       true,
       700
     );
@@ -328,20 +334,14 @@ function addArabicSection(pdf: jsPDF, title: string, text: string, y: number) {
       drawTitle(true);
     }
 
-    y = writePdfLines(pdf, [line], pdfMargin, y, contentWidth, pdfBodyLineHeight, 10, [235, 238, 243], true);
+    y = writePdfLines(pdf, [line], pdfMargin, y, contentWidth, pdfBodyLineHeight, 10, pdfColors.body, true);
   }
 
   return y + 16;
 }
 
-function paintPdfPage(pdf: jsPDF) {
-  pdf.setFillColor(8, 8, 10);
-  pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), "F");
-}
-
 function addPdfPage(pdf: jsPDF) {
   pdf.addPage();
-  paintPdfPage(pdf);
   return pdfMargin;
 }
 
