@@ -34,6 +34,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { GmailHandoffDialog } from "@/components/chat/gmail-handoff-dialog";
 import { AdvancedImageSettings } from "@/components/chat/advanced-image-settings";
 import { useAuth } from "@/components/auth/auth-provider";
 import { normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
@@ -127,6 +128,8 @@ export default function ChatPage() {
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [finalizeCandidate, setFinalizeCandidate] = useState<GeneratedConcept | null>(null);
+  const [gmailHandoff, setGmailHandoff] = useState<{ concept: GeneratedConcept; brief: DesignBrief } | null>(null);
+  const finalizingRef = useRef(false);
   const [handoffIntent, setHandoffIntent] = useState<HandoffIntent>("prepare_brief");
   const [finalizedConceptId, setFinalizedConceptId] = useState("");
   const [designBrief, setDesignBrief] = useState<DesignBrief | null>(null);
@@ -846,21 +849,25 @@ export default function ChatPage() {
     customerContact: CustomerContactDetails,
     conceptToFinalize = finalizeCandidate
   ) {
-    if (!conceptToFinalize) return;
-
-    if (
-      designBrief &&
-      designBrief.sourceConceptId === conceptToFinalize.id &&
-      isFullyArabicDesignBrief(designBrief)
-    ) {
-      setFinalizedConceptId(conceptToFinalize.id);
-      setSelectedConceptId(conceptToFinalize.id);
-      setDesignBrief({ ...designBrief, customerContact });
-      setFinalizeCandidate(null);
-      return;
+    if (!conceptToFinalize || finalizingRef.current) return;
+    finalizingRef.current = true;
+    try {
+      let completedBrief: DesignBrief | null | undefined;
+      if (designBrief && designBrief.sourceConceptId === conceptToFinalize.id && isFullyArabicDesignBrief(designBrief)) {
+        completedBrief = { ...designBrief, customerContact };
+        setFinalizedConceptId(conceptToFinalize.id);
+        setSelectedConceptId(conceptToFinalize.id);
+        setDesignBrief(completedBrief);
+        setFinalizeCandidate(null);
+      } else {
+        completedBrief = await requestDesignBrief(conceptToFinalize, customerContact);
+      }
+      if (completedBrief && handoffIntent === "send_to_shop") {
+        setGmailHandoff({ concept: conceptToFinalize, brief: completedBrief });
+      }
+    } finally {
+      finalizingRef.current = false;
     }
-
-    await requestDesignBrief(conceptToFinalize, customerContact);
   }
 
   async function ensureArabicDesignBrief(concept: GeneratedConcept) {
@@ -944,6 +951,7 @@ export default function ChatPage() {
     setUploadOpen(false);
     setFinalizeCandidate(null);
     setHandoffIntent("prepare_brief");
+    setGmailHandoff(null);
     setFinalizedConceptId("");
     setDesignBrief(null);
     setIsGeneratingBrief(false);
@@ -1113,6 +1121,7 @@ export default function ChatPage() {
       />
 
       <ComparisonDialog concepts={comparisonConcepts} open={comparisonOpen} onOpenChange={setComparisonOpen} onImageError={() => void refreshSessionImages()} />
+      <GmailHandoffDialog handoff={gmailHandoff} onClose={() => setGmailHandoff(null)} />
       <CustomerDetailsDialog
         concept={finalizeCandidate}
         intent={handoffIntent}
@@ -2306,7 +2315,7 @@ function CustomerDetailsDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <Sparkles className="h-4 w-4 animate-pulse" /> : isShopHandoff ? <Store className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-              {isSubmitting ? "Preparing..." : isShopHandoff ? "Continue" : "Prepare Brief"}
+              {isSubmitting ? "Preparing..." : isShopHandoff ? "Continue to Gmail" : "Prepare Brief"}
             </Button>
           </div>
         </form>

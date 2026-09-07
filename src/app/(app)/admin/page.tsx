@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useAuth } from "@/components/auth/auth-provider";
+import { ShopEmailSettings } from "@/components/admin/shop-email-settings";
 import { publicEnv } from "@/config/public-env";
 
 type AdminMetrics = {
@@ -113,6 +114,7 @@ export default function AdminPage() {
         <LoadingSkeleton className="h-64 rounded-3xl" />
       ) : metrics ? (
         <>
+          <ShopEmailSettings />
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard icon={<Users className="h-5 w-5" />} label="Total Users" value={metrics.totalUsers} />
             <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Generations" value={metrics.successfulImageGenerationsToday} />
