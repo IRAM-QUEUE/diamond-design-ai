@@ -256,7 +256,7 @@ function GalleryConceptCard({
             <Download className="h-4 w-4" />
           </Button>
           <Button size="icon" variant="ghost" aria-label="Open workspace" asChild>
-            <Link href={`/chat?inspiration=${encodeURIComponent(concept.url)}&title=${encodeURIComponent(concept.variationName)}`}>
+            <Link href={`/chat?inspiration=${encodeURIComponent(concept.url)}&title=${encodeURIComponent(concept.variationName)}&imageId=${encodeURIComponent(concept.storedImageId ?? concept.id)}`}>
               <Gem className="h-4 w-4" />
             </Link>
           </Button>

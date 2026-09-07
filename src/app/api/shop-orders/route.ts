@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { ApiInputError, handleApiError, parseJsonBody } from "@/lib/api-response";
 import { requireAuthenticatedUser } from "@/lib/supabase-server";
 import { requireRateLimit } from "@/lib/rate-limit";
-import { isEmailAddress, isUuid, maxOrderPdfBytes, orderPdfPath, orderSourcePath, shopOrderFilesBucket, gmailDraftUrl } from "@/lib/shop-order";
+import { isEmailAddress, isUuid, maxOrderPdfBytes, orderPdfPath, orderSourcePath, ownedDisplayStoragePath, shopOrderFilesBucket, gmailDraftUrl } from "@/lib/shop-order";
 import { createAdminSupabaseClient } from "@/services/supabase/admin";
 import { createGmailDraft, findGmailDraft, verifyGmailAccess, GmailAccessError, buildOrderMime, type OrderEmail } from "@/services/email/shop-order";
 
@@ -22,6 +22,7 @@ type Order = OrderEmail & {
 type OrderBody = {
   action?: "prepare" | "create";
   imageId?: unknown;
+  imageUrl?: unknown;
   orderId?: unknown;
   referenceId?: unknown;
   customerName?: unknown;
@@ -41,8 +42,24 @@ export async function POST(request: Request) {
 
     if (body.action === "prepare") {
       if (!isUuid(body.imageId)) throw new ApiInputError("Choose a saved final image.");
+      type SavedImage = { id: string; storage_path: string | null };
+      const { data: savedImage, error: imageError } = await admin.from("design_images").select("id,storage_path")
+        .eq("id", body.imageId).eq("user_id", auth.user.id).maybeSingle<SavedImage>();
+      if (imageError) throw imageError;
+      let image = savedImage;
+      if (!image) {
+        const displayPath = ownedDisplayStoragePath(body.imageUrl, auth.user.id, process.env.NEXT_PUBLIC_SUPABASE_URL);
+        if (displayPath) {
+          const recovered = await admin.from("design_images").select("id,storage_path")
+            .eq("storage_path", displayPath).eq("user_id", auth.user.id).maybeSingle<SavedImage>();
+          if (recovered.error) throw recovered.error;
+          image = recovered.data;
+        }
+      }
+      if (!image) return NextResponse.json({ error: "The selected image was not found." }, { status: 404 });
+      const imageId = image.id;
       const { data: existing, error: existingError } = await admin.from("shop_order_drafts").select("*")
-        .eq("user_id", auth.user.id).eq("image_id", body.imageId).maybeSingle<Order>();
+        .eq("user_id", auth.user.id).eq("image_id", imageId).maybeSingle<Order>();
       if (existingError) throw existingError;
       if (existing) return await prepareResponse(existing);
 
@@ -58,10 +75,6 @@ export async function POST(request: Request) {
       if (customerMobile.length > 32 || digits < 7 || digits > 15 || /[^\p{Number}\s+().-]/u.test(customerMobile) || /[\r\n]/.test(customerMobile)) throw new ApiInputError("Enter a valid mobile number.");
       if (typeof body.referenceId !== "string" || !/^DIA-\d{4}-[A-Z0-9-]{1,48}$/i.test(body.referenceId)) throw new ApiInputError("A valid design reference is required.");
 
-      const { data: image, error: imageError } = await admin.from("design_images").select("storage_path")
-        .eq("id", body.imageId).eq("user_id", auth.user.id).maybeSingle<{ storage_path: string | null }>();
-      if (imageError) throw imageError;
-      if (!image) return NextResponse.json({ error: "The selected image was not found." }, { status: 404 });
       const sourcePath = orderSourcePath(image.storage_path, auth.user.id);
       if (!sourcePath) throw new ApiInputError("The original image is unavailable. Please choose a newly generated or uploaded image.");
       // Check the original now, before creating an order or asking the browser to render its PDF.
@@ -69,13 +82,13 @@ export async function POST(request: Request) {
       if (sourceError || !source) throw new ApiInputError("The original image without the app watermark is unavailable. Please choose a newly generated or uploaded image.");
 
       const { data: inserted, error: insertError } = await admin.from("shop_order_drafts").insert({
-        user_id: auth.user.id, image_id: body.imageId, reference_id: body.referenceId,
+        user_id: auth.user.id, image_id: imageId, reference_id: body.referenceId,
         recipient_email: settings.recipient_email, customer_email: auth.user.email,
         customer_name: customerName, customer_mobile: customerMobile, source_storage_path: sourcePath
       }).select("*").single<Order>();
       if (insertError?.code === "23505") {
         const { data: concurrent, error } = await admin.from("shop_order_drafts").select("*")
-          .eq("user_id", auth.user.id).eq("image_id", body.imageId).single<Order>();
+          .eq("user_id", auth.user.id).eq("image_id", imageId).single<Order>();
         if (error || !concurrent) throw error;
         return await prepareResponse(concurrent);
       }

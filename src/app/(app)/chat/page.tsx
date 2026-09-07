@@ -39,6 +39,7 @@ import { AdvancedImageSettings } from "@/components/chat/advanced-image-settings
 import { useAuth } from "@/components/auth/auth-provider";
 import { normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
 import { createHandoffContext } from "@/lib/handoff-context";
+import { isUuid } from "@/lib/shop-order";
 import { requiresArabicJewelryLettering } from "@/lib/personalization";
 import { downloadDesignPdf, printDesignPdf } from "@/lib/export-design";
 import { clearDiamondSession, loadDiamondSession, saveDiamondSession } from "@/lib/session-store";
@@ -355,9 +356,11 @@ export default function ChatPage() {
 
     inspirationLoadedRef.current = true;
     const title = params.get("title") || "Inspiration Reference";
+    const storedImageId = params.get("imageId");
     const id = crypto.randomUUID();
     const referenceConcept: GeneratedConcept = {
       id,
+      storedImageId: isUuid(storedImageId) ? storedImageId : undefined,
       url: imageUrl,
       version: 1,
       parentId: null,
@@ -898,6 +901,7 @@ export default function ChatPage() {
     const referenceConcept: GeneratedConcept = {
       ...concept,
       id,
+      storedImageId: concept.storedImageId ?? concept.id,
       version: 1,
       parentId: null,
       rootId: id,

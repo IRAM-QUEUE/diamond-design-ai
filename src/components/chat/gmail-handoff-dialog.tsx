@@ -93,7 +93,8 @@ export function GmailHandoffDialog({ handoff, onClose }: {
       const headers = { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json", "X-Gmail-Token": token.value };
       const contact = handoff.brief.customerContact!;
       const prepared = await fetch("/api/shop-orders", { method: "POST", headers, body: JSON.stringify({
-        action: "prepare", imageId: handoff.concept.id, referenceId: handoff.brief.referenceId,
+        action: "prepare", imageId: handoff.concept.storedImageId ?? handoff.concept.id,
+        imageUrl: handoff.concept.url, referenceId: handoff.brief.referenceId,
         customerName: contact.name, customerMobile: contact.mobile
       }) });
       const order = await prepared.json();

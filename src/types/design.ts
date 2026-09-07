@@ -65,6 +65,8 @@ export type ChatApiResponse = {
 
 export type GeneratedConcept = {
   id: string;
+  // Reopened references have a new chat ID but still use the same stored image.
+  storedImageId?: string;
   url: string;
   prompt: string;
   variationName: string;
