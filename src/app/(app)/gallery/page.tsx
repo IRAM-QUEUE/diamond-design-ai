@@ -135,10 +135,10 @@ export default function GalleryPage() {
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.26em] text-diamond-champagne/70">{t("Saved by you", "المحفوظة بواسطتك")}</p>
-          <h1 className="font-display mt-2 text-4xl font-medium text-diamond-pearl">{t("My Designs", "تصاميمي")}</h1>
+          <h1 className="font-display mt-2 text-4xl font-medium text-diamond-pearl">{t("My Wishlist", "قائمة أمنياتي")}</h1>
         </div>
         <Button asChild variant="secondary">
-          <Link href="/chat">{t("Back to Workspace", "العودة إلى مساحة العمل")}</Link>
+          <Link href="/chat">{t("Back to Chat", "العودة إلى المحادثة")}</Link>
         </Button>
       </section>
 
@@ -172,7 +172,7 @@ export default function GalleryPage() {
               )}
             </p>
             <Button asChild className="mt-6">
-              <Link href="/chat">{t("Open Workspace", "فتح مساحة العمل")}</Link>
+              <Link href="/chat">{t("Open Chat", "فتح المحادثة")}</Link>
             </Button>
           </CardContent>
         </Card>

@@ -57,7 +57,7 @@ export function AuthButton() {
   if (user) {
     return (
       <div className="flex min-w-0 items-center gap-2">
-        <span className="hidden max-w-48 truncate text-sm text-muted-foreground md:inline">{user.email}</span>
+        <span className="hidden max-w-48 truncate text-sm text-muted-foreground 2xl:inline">{user.email}</span>
         <Button variant="secondary" onClick={() => void signOut()}>
           <LogOut className="h-4 w-4" />
           {t("Sign Out", "تسجيل الخروج")}

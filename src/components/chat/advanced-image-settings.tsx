@@ -30,6 +30,16 @@ export function AdvancedImageSettings({ value, onChange, arabicOverride }: Advan
   const effectiveOption = getImageModelOption(effectivePreference);
 
   useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 640px)");
+    const closeHiddenPanel = () => {
+      if (desktop.matches) setMobileOpen(false);
+      else setDesktopOpen(false);
+    };
+    desktop.addEventListener("change", closeHiddenPanel);
+    return () => desktop.removeEventListener("change", closeHiddenPanel);
+  }, []);
+
+  useEffect(() => {
     if (!desktopOpen) return;
 
     function handlePointerDown(event: PointerEvent) {
@@ -83,12 +93,12 @@ export function AdvancedImageSettings({ value, onChange, arabicOverride }: Advan
             role="dialog"
             aria-modal="false"
             aria-labelledby={`${panelId}-title`}
-            className="absolute bottom-[calc(100%+0.65rem)] left-0 z-40 w-[25rem] max-w-[calc(100vw-3rem)] rounded-[1.35rem] bg-[#11100f] p-4 shadow-[inset_0_1px_0_rgba(215,196,154,0.14),0_28px_90px_rgba(0,0,0,0.62)]"
+            className="absolute bottom-[calc(100%+0.65rem)] start-0 z-40 max-h-[75dvh] w-[25rem] max-w-[calc(100vw-3rem)] overflow-y-auto overscroll-contain rounded-[1.35rem] bg-[#11100f] p-4 shadow-[inset_0_1px_0_rgba(215,196,154,0.14),0_28px_90px_rgba(0,0,0,0.62)]"
           >
             <button
               type="button"
               aria-label="Close advanced settings"
-              className="absolute right-3 top-3 rounded-full p-2 text-diamond-smoke transition hover:bg-white/5 hover:text-diamond-pearl focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_rgba(215,196,154,0.18)]"
+              className="absolute end-3 top-3 rounded-full p-2 text-diamond-smoke transition hover:bg-white/5 hover:text-diamond-pearl focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_rgba(215,196,154,0.18)]"
               onClick={() => setDesktopOpen(false)}
             >
               <X className="h-4 w-4" />
@@ -115,7 +125,7 @@ export function AdvancedImageSettings({ value, onChange, arabicOverride }: Advan
             {triggerContent}
           </Button>
         </DialogTrigger>
-        <DialogContent className="bottom-0 top-auto max-h-[88dvh] w-full max-w-none -translate-y-0 overflow-y-auto rounded-b-none px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:hidden">
+        <DialogContent className="max-w-lg px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:hidden">
           <SettingsPanel value={value} onChange={onChange} arabicOverride={arabicOverride} dialogHeading />
         </DialogContent>
       </Dialog>
@@ -140,7 +150,7 @@ function SettingsPanel({
 
   return (
     <div>
-      <div className="pr-10">
+      <div className="pe-10">
         {dialogHeading ? (
           <>
             <DialogTitle className="text-xl">Image model</DialogTitle>

@@ -10,11 +10,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isArabic, t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-[#050505]">
+    <div className="min-h-dvh bg-[#050505]">
       <Sidebar />
-      <div className={cn("flex min-h-screen flex-col", isArabic ? "lg:pr-72" : "lg:pl-72")}>
+      <div className={cn("flex min-h-dvh min-w-0 flex-col", isArabic ? "lg:pr-72" : "lg:pl-72")}>
         <Header />
-        <main className="mx-auto w-full max-w-[1500px] flex-1 px-4 py-6 md:px-7 md:py-8">{children}</main>
+        <main className="mx-auto min-w-0 w-full max-w-[1500px] flex-1 px-4 py-6 md:px-7 md:py-8">{children}</main>
         <footer className="mx-auto w-full max-w-[1500px] px-4 pb-5 pt-1 md:px-7">
           <a
             href="https://queuesolutions.org/"

@@ -118,3 +118,21 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* Keep phone form fields readable without triggering focus zoom in iOS Safari. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Keep the form usable above a keyboard or in a short landscape viewport. */
+.handoff-dialog[data-compact="true"] .handoff-description {
+  display: none;
+}

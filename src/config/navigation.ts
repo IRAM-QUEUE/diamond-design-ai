@@ -1,15 +1,15 @@
-import { Gem, Image, LetterText, Plus, UserRound } from "lucide-react";
+import { Gem, Image, LetterText, MessageCircle, UserRound } from "lucide-react";
 
 export const navigationItems = [
   {
-    title: "New Design",
-    titleAr: "تصميم جديد",
+    title: "Chat",
+    titleAr: "المحادثة",
     href: "/chat",
-    icon: Plus
+    icon: MessageCircle
   },
   {
-    title: "My Designs",
-    titleAr: "تصاميمي",
+    title: "My Wishlist",
+    titleAr: "قائمة أمنياتي",
     href: "/gallery",
     icon: Image
   },

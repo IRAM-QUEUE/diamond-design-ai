@@ -139,7 +139,7 @@ export function OrdersInbox() {
         </div> : null}
       </CardContent>
       <Dialog open={Boolean(selectedId)} onOpenChange={(open) => { if (!open && !savingRef.current) { detailRequest.current++; setSelectedId(null); setDetail(null); } }}>
-        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto" showCloseButton={!saving}>
+        <DialogContent className="max-w-2xl" showCloseButton={!saving}>
           <DialogHeader>
             <DialogTitle>{detail?.order.reference_id ?? "Shop handover"}</DialogTitle>
             <DialogDescription>Review the submitted design, download its files, and update the order status.</DialogDescription>

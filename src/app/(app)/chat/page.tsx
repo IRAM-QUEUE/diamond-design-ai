@@ -981,7 +981,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="relative min-h-[calc(100vh-5rem)] overflow-x-hidden">
+    <div className="relative min-h-[calc(100dvh-5rem)] overflow-x-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[34rem] rounded-[3rem] bg-[radial-gradient(circle_at_45%_0%,rgba(215,196,154,0.16),transparent_34rem)]" />
 
       <div className="relative grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_23rem]">
@@ -1375,7 +1375,7 @@ function ConversationPanel({
               </Button>
               <Button onClick={onReset}>
                 <Plus className="h-4 w-4" />
-                {t("New Design", "تصميم جديد")}
+                {t("New Chat", "محادثة جديدة")}
               </Button>
             </div>
           </div>
@@ -2338,11 +2338,11 @@ function PreviewDialog({
 
   return (
     <Dialog open={Boolean(concept)} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-6xl border-white/10 bg-black/90 p-0">
+      <DialogContent showCloseButton={false} className="max-w-6xl border-white/10 bg-black/90 p-0 sm:p-0">
         {concept ? (
-          <div className="relative min-h-[80vh] overflow-hidden rounded-3xl">
+          <div className="relative min-w-0 overflow-hidden rounded-3xl">
             <div className="absolute inset-0 bg-diamond-radial opacity-60" />
-            <div className="relative flex min-h-[80vh] flex-col">
+            <div className="relative flex min-h-0 flex-col">
               <div className="flex flex-col gap-4 border-b bg-black/35 p-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-diamond-champagne/70">Private preview</p>
@@ -2376,7 +2376,7 @@ function PreviewDialog({
                   </Button>
                 </div>
               </div>
-              <div className="relative flex flex-1 items-center justify-center p-8">
+              <div className="relative flex min-w-0 flex-1 items-center justify-center p-3 sm:p-8">
                 {canNavigate ? (
                   <Button
                     size="icon"
@@ -2388,7 +2388,7 @@ function PreviewDialog({
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
                 ) : null}
-                <img src={concept.url} alt={concept.variationName} onError={onImageError} className="max-h-[68vh] rounded-2xl border border-diamond-champagne/15 object-contain shadow-luxury" />
+                <img src={concept.url} alt={concept.variationName} onError={onImageError} className="max-h-[60dvh] min-w-0 max-w-full rounded-2xl border border-diamond-champagne/15 object-contain shadow-luxury" />
                 {canNavigate ? (
                   <Button
                     size="icon"
