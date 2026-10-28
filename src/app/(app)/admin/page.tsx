@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Search, Shield, Users, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,31 +9,8 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useAuth } from "@/components/auth/auth-provider";
 import { OrdersInbox } from "@/components/admin/orders-inbox";
 import { publicEnv } from "@/config/public-env";
-
-type AdminMetrics = {
-  totalUsers: number;
-  imagesGeneratedToday: number;
-  imagesEditedToday: number;
-  successfulImageGenerationsToday: number;
-  failedImageGenerationsToday: number;
-  reservedImageGenerationsToday: number;
-  successfulImageEditsToday: number;
-  failedImageEditsToday: number;
-  reservedImageEditsToday: number;
-  estimatedUsageCostToday: number;
-  averageLatencyMsToday: number | null;
-  blockedUsersCount: number;
-  topUsersByImageUsage: Array<{ userId: string; email: string; imageUsage: number }>;
-  users: Array<{
-    id: string;
-    email: string | null;
-    full_name: string | null;
-    role: "customer" | "admin";
-    daily_image_limit: number;
-    monthly_image_limit: number;
-    is_blocked: boolean;
-  }>;
-};
+import { ReportPeriodFilter } from "@/components/admin/report-period-filter";
+import type { AdminMetrics } from "@/lib/admin-reporting";
 
 export default function AdminPage() {
   const { user, getAccessToken } = useAuth();
@@ -42,30 +19,43 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [userSearch, setUserSearch] = useState("");
 
-  useEffect(() => {
-    void loadMetrics();
-  }, [user]);
+  const [reportQuery, setReportQuery] = useState("period=daily");
+  const [loadedQuery, setLoadedQuery] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const tokenProvider = useRef(getAccessToken);
+  tokenProvider.current = getAccessToken;
+  const latestRequest = useRef(0);
 
   async function authHeaders(): Promise<Record<string, string>> {
-    const token = await getAccessToken();
+    const token = await tokenProvider.current();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
-  async function loadMetrics() {
+  const loadMetrics = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setError("");
     setIsLoading(true);
     try {
-      const response = await fetch("/api/admin", { headers: await authHeaders() });
+      const response = await fetch(`/api/admin?${reportQuery}`, { headers: await authHeaders(), cache: "no-store" });
       const payload = (await response.json()) as AdminMetrics & { error?: string };
+      if (requestId !== latestRequest.current) return;
       if (!response.ok) throw new Error(payload.error ?? "Admin metrics could not be loaded.");
       setMetrics(payload);
+      setLoadedQuery(reportQuery);
     } catch (adminError) {
+      if (requestId !== latestRequest.current) return;
       setMetrics(null);
       setError(adminError instanceof Error ? adminError.message : "Admin metrics could not be loaded.");
     } finally {
-      setIsLoading(false);
+      if (requestId === latestRequest.current) setIsLoading(false);
     }
-  }
+  }, [reportQuery]);
+
+  useEffect(() => {
+    void loadMetrics();
+    const counter = latestRequest;
+    return () => { counter.current++; };
+  }, [loadMetrics, user?.id, refreshKey]);
 
   async function updateUser(userId: string, updates: { isBlocked?: boolean; dailyImageLimit?: number; monthlyImageLimit?: number; role?: "customer" | "admin" }) {
     setError("");
@@ -77,7 +67,7 @@ export default function AdminPage() {
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "The user could not be updated.");
-      await loadMetrics();
+      setRefreshKey((value) => value + 1);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "The user could not be updated.");
     }
@@ -91,8 +81,14 @@ export default function AdminPage() {
       })
     : [];
 
+  const refreshingReport = isLoading || loadedQuery !== reportQuery;
+  const reportLabel = metrics ? formatRangeLabel(metrics.range) : "";
+  const rankingLabel = metrics?.range.period === "daily" ? "Today"
+    : metrics?.range.period === "weekly" ? "This Week"
+      : metrics?.range.period === "monthly" ? "This Month" : "Selected Dates";
+
   return (
-    <div className="min-h-[calc(100vh-5rem)] space-y-5">
+    <div className="min-h-[calc(100dvh-5rem)] min-w-0 space-y-5">
       <header className="rounded-3xl border bg-card/70 p-5 shadow-luxury backdrop-blur-xl">
         <p className="text-sm text-muted-foreground">Production controls</p>
         <h1 className="mt-2 text-3xl font-semibold text-white">Admin Usage Dashboard</h1>
@@ -110,25 +106,27 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      {isLoading ? (
+      <ReportPeriodFilter range={metrics?.range ?? null} onChange={setReportQuery} />
+      {isLoading && !metrics ? (
         <LoadingSkeleton className="h-64 rounded-3xl" />
       ) : metrics ? (
         <>
           <OrdersInbox />
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard icon={<Users className="h-5 w-5" />} label="Total Users" value={metrics.totalUsers} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Generations" value={metrics.successfulImageGenerationsToday} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Failed Generations" value={metrics.failedImageGenerationsToday} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Reserved Generations" value={metrics.reservedImageGenerationsToday} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Edits" value={metrics.successfulImageEditsToday} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Failed Edits" value={metrics.failedImageEditsToday} />
-            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Reserved Edits" value={metrics.reservedImageEditsToday} />
-            <MetricCard icon={<Shield className="h-5 w-5" />} label="Avg Latency" value={metrics.averageLatencyMsToday === null ? "N/A" : `${metrics.averageLatencyMsToday}ms`} />
-            <MetricCard icon={<Shield className="h-5 w-5" />} label="Blocked Users" value={metrics.blockedUsersCount} />
-            <MetricCard icon={<Shield className="h-5 w-5" />} label="Cost Today" value={`$${metrics.estimatedUsageCostToday.toFixed(2)}`} />
-          </section>
+          <p role="status" className="text-sm text-muted-foreground">{refreshingReport ? "Loading insights..." : `Showing ${reportLabel}`}</p>
+          {refreshingReport ? <LoadingSkeleton className="h-64 rounded-3xl" /> : <section aria-label="Usage insights" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard icon={<Users className="h-5 w-5" />} label="Total Users · All Time" value={metrics.totalUsers} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Generations" value={metrics.successfulImageGenerations} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Failed Generations" value={metrics.failedImageGenerations} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Reserved Generations" value={metrics.reservedImageGenerations} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Edits" value={metrics.successfulImageEdits} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Failed Edits" value={metrics.failedImageEdits} />
+            <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Reserved Edits" value={metrics.reservedImageEdits} />
+            <MetricCard icon={<Shield className="h-5 w-5" />} label="Avg Latency" value={metrics.averageLatencyMs === null ? "N/A" : `${metrics.averageLatencyMs}ms`} />
+            <MetricCard icon={<Shield className="h-5 w-5" />} label="Blocked Users · Current" value={metrics.blockedUsersCount} />
+            <MetricCard icon={<Shield className="h-5 w-5" />} label="Estimated Image Cost" value={`$${metrics.estimatedUsageCost.toFixed(2)}`} />
+          </section>}
 
-          <section className="grid gap-5 xl:grid-cols-[1fr_26rem]">
+          <section className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -162,18 +160,19 @@ export default function AdminPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Top Image Users Today</CardTitle>
+                <CardTitle>Top Image Users · {rankingLabel}</CardTitle>
+                <p className="mt-2 text-xs text-muted-foreground">{refreshingReport ? "Loading selected range..." : reportLabel}</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {metrics.topUsersByImageUsage.length ? (
+                {refreshingReport ? <p role="status" className="text-sm text-muted-foreground">Loading top users...</p> : metrics.topUsersByImageUsage.length ? (
                   metrics.topUsersByImageUsage.map((entry) => (
                     <div key={entry.userId} className="rounded-2xl border bg-white/[0.035] p-4">
                       <p className="truncate text-sm font-medium text-white">{entry.email}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{entry.imageUsage} image credits</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{entry.imageUsage} image credits · successful + reserved</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No image usage logged today.</p>
+                  <p className="text-sm text-muted-foreground">No image usage in this date range.</p>
                 )}
               </CardContent>
             </Card>
@@ -212,7 +211,7 @@ function UserLimitRow({
   const isCurrentUser = profile.id === currentUserId;
 
   return (
-    <div className="grid gap-3 rounded-2xl border bg-white/[0.035] p-4 lg:grid-cols-[minmax(0,1fr)_8rem_8rem_auto_auto_auto] lg:items-center">
+    <div className="grid gap-3 rounded-2xl border bg-white/[0.035] p-4 xl:grid-cols-[minmax(0,1fr)_5rem_5rem_auto_auto_auto] xl:items-center 2xl:grid-cols-2 2xl:items-start">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-white">{profile.email ?? profile.id}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -224,13 +223,13 @@ function UserLimitRow({
       <input
         value={daily}
         onChange={(event) => setDaily(event.target.value)}
-        className="rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
+        className="min-w-0 rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
         aria-label="Daily image limit"
       />
       <input
         value={monthly}
         onChange={(event) => setMonthly(event.target.value)}
-        className="rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
+        className="min-w-0 rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
         aria-label="Monthly image limit"
       />
       <Button
@@ -268,4 +267,11 @@ function UserLimitRow({
       )}
     </div>
   );
+}
+
+function formatRangeLabel(range: AdminMetrics["range"]) {
+  const format = (value: string) => new Intl.DateTimeFormat("en", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC"
+  }).format(new Date(`${value}T00:00:00Z`));
+  return `${format(range.from)}${range.from === range.to ? "" : ` – ${format(range.to)}`} (UTC)`;
 }

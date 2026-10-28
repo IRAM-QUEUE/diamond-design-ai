@@ -167,7 +167,7 @@ Image credits apply only to Replicate image outputs:
 - `image_edit` consumes 1 credit.
 - `upload`, `chat`, and `design_brief` consume 0 credits.
 
-The server reserves image credits atomically in Postgres before calling Replicate. Reserved and succeeded image events count against limits; failed provider events are marked `failed` and no longer count against future limits. Defaults are 5 daily image credits and 50 monthly image credits. The workspace shows remaining daily and monthly credits near generation/edit controls and disables AI image actions at the limit.
+The server reserves image credits atomically in Postgres before calling Replicate. Reserved and succeeded image events count against limits; failed provider events are marked `failed` and no longer count against future limits. Defaults are 25 daily image credits and 250 monthly image credits. Migration `20261028100150_default_image_limits.sql` updates new-profile defaults and existing limits still set to 5/day or 50/month, preserving other per-user overrides. The workspace shows remaining daily and monthly credits near generation/edit controls and disables AI image actions at the limit.
 
 Server-side rate limits:
 
@@ -191,6 +191,8 @@ where email = 'admin@example.com';
 Replace `admin@example.com` with the intended admin email after that person signs in once.
 
 Admins can view total users, successful/failed/reserved image generations and edits, estimated usage cost, average latency, top image users, blocked users, and can block/unblock users or change daily/monthly image limits.
+
+The dashboard supports today, the current calendar week (Monday–Sunday), the current calendar month, or an inclusive custom From/To date range. All report dates use UTC, matching production credit resets. The same range filters image counts, estimated cost, latency, and top image users; user totals and account controls remain current snapshots. Failed attempts are shown separately and do not count toward the top-users credit ranking. Reports paginate through all matching usage events, including periods with more than 1,000 events.
 
 ## Vercel Deployment
 
@@ -242,6 +244,9 @@ src/
 ```bash
 npm run lint
 npm run build
+node scripts/test-admin-reporting.cjs
+node scripts/test-workshop-orders.cjs
+node scripts/test-shop-order.cjs
 ```
 
 ## Production Hardening Verification
