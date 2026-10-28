@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Search, Shield, Users, Wand2 } from "lucide-react";
+import { Loader2, Search, Shield, Users, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -11,6 +11,9 @@ import { OrdersInbox } from "@/components/admin/orders-inbox";
 import { publicEnv } from "@/config/public-env";
 import { ReportPeriodFilter } from "@/components/admin/report-period-filter";
 import type { AdminMetrics } from "@/lib/admin-reporting";
+
+type UserUpdates = { isBlocked?: boolean; dailyImageLimit?: number; monthlyImageLimit?: number; role?: "customer" | "admin" };
+type UserAction = "save" | "block" | "unblock" | "promote" | "demote";
 
 export default function AdminPage() {
   const { user, getAccessToken } = useAuth();
@@ -25,6 +28,9 @@ export default function AdminPage() {
   const tokenProvider = useRef(getAccessToken);
   tokenProvider.current = getAccessToken;
   const latestRequest = useRef(0);
+  const updatingUsersRef = useRef(new Set<string>());
+  const [updatingUsers, setUpdatingUsers] = useState<Record<string, UserAction>>({});
+  const [userErrors, setUserErrors] = useState<Record<string, string>>({});
 
   async function authHeaders(): Promise<Record<string, string>> {
     const token = await tokenProvider.current();
@@ -57,7 +63,14 @@ export default function AdminPage() {
     return () => { counter.current++; };
   }, [loadMetrics, user?.id, refreshKey]);
 
-  async function updateUser(userId: string, updates: { isBlocked?: boolean; dailyImageLimit?: number; monthlyImageLimit?: number; role?: "customer" | "admin" }) {
+  async function updateUser(userId: string, updates: UserUpdates) {
+    // Lock synchronously, before token lookup, to ignore rapid repeated clicks.
+    if (updatingUsersRef.current.has(userId)) return;
+    updatingUsersRef.current.add(userId);
+    const action: UserAction = updates.isBlocked !== undefined ? (updates.isBlocked ? "block" : "unblock")
+      : updates.role ? (updates.role === "admin" ? "promote" : "demote") : "save";
+    setUpdatingUsers((current) => ({ ...current, [userId]: action }));
+    setUserErrors((current) => ({ ...current, [userId]: "" }));
     setError("");
     try {
       const response = await fetch("/api/admin", {
@@ -67,10 +80,39 @@ export default function AdminPage() {
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "The user could not be updated.");
+      // Show the confirmed change immediately instead of leaving stale action buttons
+      // enabled while the background metrics request is still running.
+      latestRequest.current++;
+      setMetrics((current) => {
+        if (!current) return current;
+        const users = current.users.map((profile) => profile.id !== userId ? profile : {
+          ...profile,
+          ...(updates.isBlocked !== undefined ? { is_blocked: updates.isBlocked } : {}),
+          ...(updates.dailyImageLimit !== undefined ? { daily_image_limit: updates.dailyImageLimit } : {}),
+          ...(updates.monthlyImageLimit !== undefined ? { monthly_image_limit: updates.monthlyImageLimit } : {}),
+          ...(updates.role ? { role: updates.role } : {})
+        });
+        return { ...current, users, blockedUsersCount: users.filter((profile) => profile.is_blocked).length };
+      });
       setRefreshKey((value) => value + 1);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "The user could not be updated.");
+      const message = updateError instanceof Error ? updateError.message : "The user could not be updated.";
+      setError(message);
+      setUserErrors((current) => ({ ...current, [userId]: message }));
+    } finally {
+      updatingUsersRef.current.delete(userId);
+      setUpdatingUsers((current) => {
+        const next = { ...current };
+        delete next[userId];
+        return next;
+      });
     }
+  }
+
+  function changeReportQuery(query: string) {
+    setIsLoading(true);
+    if (query === reportQuery) setRefreshKey((value) => value + 1);
+    else setReportQuery(query);
   }
 
   const filteredUsers = metrics
@@ -81,7 +123,7 @@ export default function AdminPage() {
       })
     : [];
 
-  const refreshingReport = isLoading || loadedQuery !== reportQuery;
+  const refreshingReport = isLoading || (Boolean(metrics) && loadedQuery !== reportQuery);
   const reportLabel = metrics ? formatRangeLabel(metrics.range) : "";
   const rankingLabel = metrics?.range.period === "daily" ? "Today"
     : metrics?.range.period === "weekly" ? "This Week"
@@ -106,13 +148,13 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      <ReportPeriodFilter range={metrics?.range ?? null} onChange={setReportQuery} />
+      <ReportPeriodFilter range={metrics?.range ?? null} isLoading={refreshingReport} onChange={changeReportQuery} />
       {isLoading && !metrics ? (
         <LoadingSkeleton className="h-64 rounded-3xl" />
       ) : metrics ? (
         <>
           <OrdersInbox />
-          <p role="status" className="text-sm text-muted-foreground">{refreshingReport ? "Loading insights..." : `Showing ${reportLabel}`}</p>
+          <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">{refreshingReport ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}{refreshingReport ? "Loading insights..." : `Showing ${reportLabel}`}</p>
           {refreshingReport ? <LoadingSkeleton className="h-64 rounded-3xl" /> : <section aria-label="Usage insights" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard icon={<Users className="h-5 w-5" />} label="Total Users · All Time" value={metrics.totalUsers} />
             <MetricCard icon={<Wand2 className="h-5 w-5" />} label="Successful Generations" value={metrics.successfulImageGenerations} />
@@ -150,6 +192,8 @@ export default function AdminPage() {
                       profile={profile}
                       currentUserId={user?.id ?? ""}
                       onUpdate={updateUser}
+                      pendingAction={updatingUsers[profile.id] ?? null}
+                      error={userErrors[profile.id] ?? ""}
                     />
                   ))
                 ) : (
@@ -200,18 +244,26 @@ function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; va
 function UserLimitRow({
   profile,
   currentUserId,
-  onUpdate
+  onUpdate,
+  pendingAction,
+  error
 }: {
   profile: AdminMetrics["users"][number];
   currentUserId: string;
-  onUpdate: (userId: string, updates: { isBlocked?: boolean; dailyImageLimit?: number; monthlyImageLimit?: number; role?: "customer" | "admin" }) => Promise<void>;
+  onUpdate: (userId: string, updates: UserUpdates) => Promise<void>;
+  pendingAction: UserAction | null;
+  error: string;
 }) {
   const [daily, setDaily] = useState(String(profile.daily_image_limit));
   const [monthly, setMonthly] = useState(String(profile.monthly_image_limit));
   const isCurrentUser = profile.id === currentUserId;
+  const busy = pendingAction !== null;
+  const changingBlock = pendingAction === "block" || pendingAction === "unblock";
+  const changingRole = pendingAction === "promote" || pendingAction === "demote";
+  const spinner = <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />;
 
   return (
-    <div className="grid gap-3 rounded-2xl border bg-white/[0.035] p-4 xl:grid-cols-[minmax(0,1fr)_5rem_5rem_auto_auto_auto] xl:items-center 2xl:grid-cols-2 2xl:items-start">
+    <div role="group" aria-label={`User controls for ${profile.email ?? profile.id}`} aria-busy={busy} className="grid gap-3 rounded-2xl border bg-white/[0.035] p-4 xl:grid-cols-[minmax(0,1fr)_5rem_5rem_auto_auto_auto] xl:items-center">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-white">{profile.email ?? profile.id}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -222,18 +274,23 @@ function UserLimitRow({
       </div>
       <input
         value={daily}
+        disabled={busy}
         onChange={(event) => setDaily(event.target.value)}
         className="min-w-0 rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
         aria-label="Daily image limit"
       />
       <input
         value={monthly}
+        disabled={busy}
         onChange={(event) => setMonthly(event.target.value)}
         className="min-w-0 rounded-xl border bg-background/70 px-3 py-2 text-sm text-white outline-none"
         aria-label="Monthly image limit"
       />
       <Button
         variant="secondary"
+        className="min-w-[6.5rem] px-3"
+        disabled={busy}
+        aria-busy={pendingAction === "save"}
         onClick={() =>
           onUpdate(profile.id, {
             dailyImageLimit: Number(daily),
@@ -241,30 +298,38 @@ function UserLimitRow({
           })
         }
       >
-        Save
+        {pendingAction === "save" ? spinner : null}
+        {pendingAction === "save" ? "Saving..." : "Save"}
       </Button>
       <Button
         variant="secondary"
-        className={!profile.is_blocked ? "border-destructive/40 text-destructive-foreground" : ""}
+        className={`min-w-[7.5rem] px-3 ${!profile.is_blocked ? "border-destructive/40 text-destructive-foreground" : ""}`}
+        disabled={busy}
+        aria-busy={changingBlock}
         onClick={() => onUpdate(profile.id, { isBlocked: !profile.is_blocked })}
       >
-        {profile.is_blocked ? "Unblock" : "Block"}
+        {changingBlock ? spinner : null}
+        {pendingAction === "block" ? "Blocking..." : pendingAction === "unblock" ? "Unblocking..." : profile.is_blocked ? "Unblock" : "Block"}
       </Button>
       {profile.role === "admin" ? (
         <Button
           variant="secondary"
-          className="border-destructive/40 text-destructive-foreground"
-          disabled={isCurrentUser}
+          className="min-w-[11rem] border-destructive/40 px-3 text-destructive-foreground"
+          disabled={isCurrentUser || busy}
+          aria-busy={changingRole}
           title={isCurrentUser ? "You cannot remove your own admin access." : undefined}
           onClick={() => onUpdate(profile.id, { role: "customer" })}
         >
-          Remove Admin
+          {changingRole ? spinner : null}
+          {changingRole ? "Removing..." : "Remove Admin"}
         </Button>
       ) : (
-        <Button variant="secondary" onClick={() => onUpdate(profile.id, { role: "admin" })}>
-          Promote to Admin
+        <Button variant="secondary" className="min-w-[11rem] px-3" disabled={busy} aria-busy={changingRole} onClick={() => onUpdate(profile.id, { role: "admin" })}>
+          {changingRole ? spinner : null}
+          {changingRole ? "Promoting..." : "Promote to Admin"}
         </Button>
       )}
+      {error ? <p role="alert" className="text-sm text-destructive-foreground xl:col-span-6">{error}</p> : null}
     </div>
   );
 }

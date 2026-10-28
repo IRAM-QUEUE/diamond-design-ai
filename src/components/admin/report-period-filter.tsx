@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveAdminReportRange, utcDateString, type AdminReportRange, type ReportPeriod } from "@/lib/admin-reporting";
 
-export function ReportPeriodFilter({ range, onChange }: {
+export function ReportPeriodFilter({ range, isLoading, onChange }: {
   range: AdminReportRange | null;
+  isLoading: boolean;
   onChange: (query: string) => void;
 }) {
   const [period, setPeriod] = useState<ReportPeriod>("daily");
   const [from, setFrom] = useState(() => utcDateString(new Date()));
   const [to, setTo] = useState(() => utcDateString(new Date()));
   const [error, setError] = useState("");
+  const applyingRef = useRef(false);
+  useEffect(() => { if (!isLoading) applyingRef.current = false; }, [isLoading]);
 
   return (
     <section className="min-w-0 space-y-4 rounded-3xl border bg-card/70 p-4 sm:p-5" aria-label="Reporting timeframe">
@@ -47,10 +50,12 @@ export function ReportPeriodFilter({ range, onChange }: {
       {period === "custom" ? (
         <form className="space-y-3" onSubmit={(event) => {
           event.preventDefault();
+          if (isLoading || applyingRef.current) return;
           try {
             const params = new URLSearchParams({ period: "custom", from, to });
             resolveAdminReportRange(params);
             setError("");
+            applyingRef.current = true;
             onChange(params.toString());
           } catch (issue) {
             setError(issue instanceof Error ? issue.message : "Choose valid dates.");
@@ -63,7 +68,10 @@ export function ReportPeriodFilter({ range, onChange }: {
             <label className="block min-w-0 space-y-2 text-sm text-muted-foreground">To
               <input required type="date" aria-label="To date" value={to} onChange={(event) => setTo(event.target.value)} className="block min-h-11 w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-white [color-scheme:dark]" />
             </label>
-            <Button type="submit" className="min-h-11">Apply dates</Button>
+            <Button type="submit" className="min-h-11" disabled={isLoading} aria-busy={isLoading}>
+              {isLoading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+              {isLoading ? "Loading..." : "Apply dates"}
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground">Choose dates and select Apply dates to update the report. Both dates are included.</p>
           {error ? <p role="alert" className="text-sm text-destructive-foreground">{error}</p> : null}
