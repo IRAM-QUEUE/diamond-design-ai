@@ -6,6 +6,7 @@ import { Gem } from "lucide-react";
 import { navigationItems } from "@/config/navigation";
 import { useLanguage } from "@/lib/language";
 import { cn } from "@/lib/utils";
+import { BrandWordmark } from "@/components/branding/brand-wordmark";
 
 export function Sidebar() {
   const { isArabic, t } = useLanguage();
@@ -18,12 +19,12 @@ export function Sidebar() {
         isArabic ? "right-0 shadow-[inset_1px_0_0_rgba(215,196,154,0.08)]" : "left-0 shadow-[inset_-1px_0_0_rgba(215,196,154,0.08)]"
       )}
     >
-      <Link href="/" className="block px-1 py-3">
+      <Link href="/" aria-label="FORM by MNG home" className="block px-1 py-3">
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-diamond-champagne shadow-[inset_0_0_0_1px_rgba(215,196,154,0.28),0_16px_34px_rgba(0,0,0,0.24)]">
           <Gem className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-display text-3xl font-medium leading-none text-diamond-pearl">Maison DIA</p>
+          <BrandWordmark />
           <p className="mt-2 text-[0.68rem] uppercase tracking-[0.34em] text-diamond-champagne/70">{t("Private Atelier", "أتيليه خاص")}</p>
         </div>
       </Link>

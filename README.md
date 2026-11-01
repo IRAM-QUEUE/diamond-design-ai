@@ -1,4 +1,4 @@
-# Diamond Design AI Agent
+# FORM by MNG
 
 A premium AI design workspace for diamond jewelry concepting, refinement, and workshop handoff. The MVP supports two demo journeys: creating a new concept from conversation, and uploading an existing reference design for AI-assisted edits.
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Gem, Menu, Shield, Sparkles } from "lucide-react";
+import { Menu, Shield, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { navigationItems } from "@/config/navigation";
@@ -11,6 +11,7 @@ import { AuthButton } from "@/components/auth/auth-button";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/lib/language";
 import { clearDiamondSession } from "@/lib/session-store";
+import { BrandWordmark } from "@/components/branding/brand-wordmark";
 
 export function Header() {
   const { isArabic, toggleLanguage, t } = useLanguage();
@@ -85,9 +86,8 @@ export function Header() {
               </nav>
             </DialogContent>
           </Dialog>
-          <Link href="/" aria-label="Maison DIA home" className="flex items-center gap-2 font-semibold text-white">
-            <Gem className="h-5 w-5 text-diamond-champagne" />
-            <span className="font-display hidden text-xl font-medium min-[400px]:inline">Maison DIA</span>
+          <Link href="/" aria-label="FORM by MNG home" className="flex items-center gap-2 text-white">
+            <BrandWordmark compact />
           </Link>
         </div>
         <div className="hidden min-w-0 flex-1 items-center rounded-full bg-white/[0.035] px-5 py-3 text-muted-foreground shadow-[inset_0_0_0_1px_rgba(215,196,154,0.08)] xl:flex xl:max-w-md">

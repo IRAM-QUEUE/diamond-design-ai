@@ -2,100 +2,103 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Feather, Gem, PenLine, Upload } from "lucide-react";
+import { ArrowRight, Upload } from "lucide-react";
+import { BrandWordmark } from "@/components/branding/brand-wordmark";
 import { Button } from "@/components/ui/button";
+import { brandDisplay } from "@/config/brand";
 import { useLanguage } from "@/lib/language";
+import { cn } from "@/lib/utils";
+import styles from "./home.module.css";
 
 export default function LandingPage() {
   const { isArabic, toggleLanguage, t } = useLanguage();
-  const localizedNotes = [
+  const notes = [
     {
-      title: t("Private consultation", "استشارة خاصة"),
-      description: t("A guided exchange shaped like an atelier appointment.", "حوار موجه يشبه موعداً داخل أتيليه خاص.")
+      title: t("A personal beginning", "بداية تعبّر عنك"),
+      description: t("Share an idea, a story, or an image that speaks to you.", "شارك فكرة أو قصة أو صورة تحمل لك معنى.")
     },
     {
-      title: t("Diamond-led direction", "اتجاه مستوحى من الألماس"),
-      description: t("Visual concepts centered on stone, metal, silhouette, and emotion.", "تصورات بصرية تتمحور حول الحجر والمعدن والشكل والإحساس.")
+      title: t("Every detail, considered", "عناية بكل تفصيل"),
+      description: t("Explore the stones, metal, and proportions that make it yours.", "اكتشف الأحجار والمعدن والتفاصيل التي تمنح قطعتك طابعها الخاص.")
     },
     {
-      title: t("Artisan-ready handoff", "ملف جاهز للحرفي"),
-      description: t("A final brief designed for conversation with a professional jeweler.", "ملخص نهائي مصمم للنقاش مع صائغ محترف.")
+      title: t("A vision to take further", "رؤية جاهزة للخطوة التالية"),
+      description: t("Bring your chosen design and a clear brief to your jeweler.", "خذ تصميمك المختار وملخصه الواضح إلى صائغك.")
     }
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#0b0b0b]">
-      <div className="absolute inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=2200&q=85"
-          alt="Macro diamond ring inspiration"
-          className="h-full w-full object-cover opacity-55"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,#0b0b0b_0%,rgba(11,11,11,0.92)_35%,rgba(11,11,11,0.58)_68%,rgba(11,11,11,0.35)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0b0b0b] to-transparent" />
-      </div>
-
-      <div className="container relative flex min-h-screen flex-col py-8">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-4">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-diamond-champagne/40 text-diamond-champagne">
-              <Gem className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block font-display text-2xl leading-none text-diamond-pearl">Maison DIA</span>
-              <span className="mt-1 block text-[0.65rem] uppercase tracking-[0.32em] text-diamond-champagne/70">
-                Private Atelier
-              </span>
-            </span>
+    <main className={styles.page}>
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <Link href="/" aria-label="FORM by MNG home" className={styles.brandLink}>
+            <BrandWordmark />
           </Link>
-          <Button asChild variant="secondary">
-            <Link href="/chat">{t("Enter Studio", "دخول الاستوديو")}</Link>
-          </Button>
-          <Button variant="ghost" size="sm" onClick={toggleLanguage}>
-            {isArabic ? "EN" : "عربي"}
-          </Button>
+          <nav aria-label={t("Studio navigation", "التنقل إلى الاستوديو")} className={styles.navigation}>
+            <Button variant="ghost" size="sm" onClick={toggleLanguage} aria-label={t("Switch to Arabic", "التبديل إلى الإنجليزية")}>
+              {isArabic ? "EN" : "عربي"}
+            </Button>
+            <span aria-hidden="true" className={styles.navigationDivider} />
+            <Button asChild variant="outline" className={styles.enterButton}>
+              <Link href="/chat">{t("Enter studio", "دخول الاستوديو")}</Link>
+            </Button>
+          </nav>
         </header>
 
-        <section className="flex flex-1 items-center py-16">
-          <div className="max-w-3xl">
-            <div className="mb-10 inline-flex items-center gap-3 border-b border-diamond-champagne/25 pb-3 text-xs uppercase tracking-[0.34em] text-diamond-champagne/80">
-              <Feather className="h-4 w-4" />
-              {t("Private diamond consultation", "استشارة ألماس خاصة")}
-            </div>
-            <h1 className="font-display text-balance text-6xl font-medium leading-[0.95] text-diamond-pearl md:text-8xl">
-              {t("Every masterpiece begins with an idea.", "كل تحفة تبدأ بفكرة.")}
+        <section className={styles.hero} aria-labelledby="home-headline">
+          <div className={styles.copy}>
+            <p className={styles.eyebrow}>{t("A private jewelry design studio", "استوديو خاص لتصميم المجوهرات")}</p>
+            <h1 id="home-headline" className={cn(styles.headline, isArabic ? styles.arabicHeadline : brandDisplay.className)}>
+              <span>{t("Your vision,", "رؤيتك،")}</span>
+              <em>{t("beautifully formed.", "بصياغة تليق بك.")}</em>
             </h1>
-            <p className="mt-8 max-w-2xl text-lg leading-9 text-diamond-smoke md:text-xl">
+            <p className={styles.description}>
               {t(
-                "Enter a quiet design studio where AI helps translate imagination into a refined diamond concept for artisan review.",
-                "ادخل استوديو تصميم هادئاً يساعدك فيه الذكاء الاصطناعي على تحويل الخيال إلى تصور ألماسي راقٍ للمراجعة الحرفية."
+                "An idea, a reference, a detail you love. Explore diamond jewelry shaped around you, then take your design to your jeweler.",
+                "فكرة، صورة مرجعية، أو تفصيل تحبه. اكتشف تصميماً ألماسياً يعبّر عنك، ثم خذ رؤيتك إلى صائغك."
               )}
             </p>
-            <div className="mt-12 flex flex-col gap-4 sm:flex-row">
-              <Button asChild size="lg">
+            <div className={styles.actions}>
+              <Button asChild size="lg" className={styles.primaryAction}>
                 <Link href="/chat">
-                  {t("Begin a Private Design", "ابدأ تصميماً خاصاً")}
-                  <ArrowRight className="h-4 w-4" />
+                  {t("Start your design", "ابدأ تصميمك")}
+                  <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="secondary">
-                <Link href="/chat">
-                  <Upload className="h-4 w-4" />
-                  {t("Bring a Reference", "إضافة مرجع")}
-                </Link>
-              </Button>
+              <Link href="/chat?mode=upload" className={styles.referenceAction}>
+                <Upload aria-hidden="true" className="h-4 w-4" />
+                {t("Bring a reference", "أضف صورة مرجعية")}
+              </Link>
             </div>
+            <p className={styles.signature}>{t("Imagined by you. Refined with AI.", "من خيالك، وبمساعدة الذكاء الاصطناعي.")}</p>
           </div>
+
+          <figure className={styles.visual}>
+            <div className={styles.imageFrame}>
+              <img
+                src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=1400&q=85"
+                alt={t("A diamond ring, seen in detail", "تفاصيل خاتم ألماسي")}
+                width={1200}
+                height={1200}
+                fetchPriority="high"
+                decoding="async"
+                className={styles.image}
+              />
+              <div aria-hidden="true" className={styles.imageShade} />
+            </div>
+            <figcaption className={styles.caption}>
+              <span>{t("An expression of you.", "قطعة تعبّر عنك.")}</span>
+              <span aria-hidden="true" className={styles.captionLine} />
+              <span className={styles.captionLabel}>{t("The art of personal design", "فن التصميم الشخصي")}</span>
+            </figcaption>
+          </figure>
         </section>
 
-        <section className="grid gap-3 pb-6 md:grid-cols-3">
-          {localizedNotes.map((note, index) => (
-            <div key={note.title} className="border-t border-diamond-champagne/20 pt-5">
-              <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-diamond-champagne/25 text-diamond-champagne">
-                {index === 0 ? <Gem className="h-4 w-4" /> : index === 1 ? <PenLine className="h-4 w-4" /> : <Feather className="h-4 w-4" />}
-              </div>
-              <p className="font-display text-2xl text-diamond-pearl">{note.title}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{note.description}</p>
+        <section aria-label={t("Your design journey", "رحلة تصميمك")} className={styles.notes}>
+          {notes.map((note) => (
+            <div key={note.title} className={styles.note}>
+              <h2 className={cn(styles.noteTitle, !isArabic && brandDisplay.className)}>{note.title}</h2>
+              <p>{note.description}</p>
             </div>
           ))}
         </section>
