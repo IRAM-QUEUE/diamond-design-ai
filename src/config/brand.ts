@@ -13,3 +13,10 @@ export const brandDisplay = localFont({
   ],
   display: "swap"
 });
+
+export const brandWordmark = localFont({
+  src: "../assets/fonts/BodoniModa-Latin.woff2",
+  weight: "500 600",
+  style: "normal",
+  display: "swap"
+});

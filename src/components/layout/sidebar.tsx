@@ -25,7 +25,7 @@ export function Sidebar() {
         </div>
         <div>
           <BrandWordmark />
-          <p className="mt-2 text-[0.68rem] uppercase tracking-[0.34em] text-diamond-champagne/70">{t("Private Atelier", "أتيليه خاص")}</p>
+          <p className="mt-4 text-[0.6rem] uppercase tracking-[0.27em] text-diamond-champagne/55">{t("Private Atelier", "أتيليه خاص")}</p>
         </div>
       </Link>
 
