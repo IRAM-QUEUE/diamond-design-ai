@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { BrandWordmark } from "@/components/branding/brand-wordmark";
 
 export function Sidebar() {
-  const { isArabic, t } = useLanguage();
+  const { isArabic } = useLanguage();
   const pathname = usePathname();
 
   return (
@@ -19,17 +19,14 @@ export function Sidebar() {
         isArabic ? "right-0 shadow-[inset_1px_0_0_rgba(215,196,154,0.08)]" : "left-0 shadow-[inset_-1px_0_0_rgba(215,196,154,0.08)]"
       )}
     >
-      <Link href="/" aria-label="FORM by MNG home" className="block px-1 py-3">
-        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-diamond-champagne shadow-[inset_0_0_0_1px_rgba(215,196,154,0.28),0_16px_34px_rgba(0,0,0,0.24)]">
+      <Link href="/" aria-label="FORM by MNG home" className="flex w-full flex-col items-center py-3">
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full text-diamond-champagne shadow-[inset_0_0_0_1px_rgba(215,196,154,0.28),0_16px_34px_rgba(0,0,0,0.24)]">
           <Gem className="h-5 w-5" />
         </div>
-        <div>
-          <BrandWordmark />
-          <p className="mt-4 text-[0.6rem] uppercase tracking-[0.27em] text-diamond-champagne/55">{t("Private Atelier", "أتيليه خاص")}</p>
-        </div>
+        <BrandWordmark />
       </Link>
 
-      <div className="atelier-line my-10 h-px" />
+      <div className="atelier-line my-9 h-px" />
 
       <nav className="space-y-1">
         {navigationItems.map((item) => (
