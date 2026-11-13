@@ -1,10 +1,5 @@
 import { requireOpenAiApiKey, serverEnv } from "@/config/env";
-import type { LlmCompletionRequest, LlmCompletionResponse, LlmProvider } from "./provider";
-
-type OpenAiChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
+import type { LlmCompletionRequest, LlmCompletionResponse, LlmMessage, LlmProvider } from "./provider";
 
 type OpenAiChatResponse = {
   choices?: Array<{
@@ -48,7 +43,7 @@ export class OpenAiLlmProvider implements LlmProvider {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: request.messages satisfies OpenAiChatMessage[],
+          messages: request.messages satisfies LlmMessage[],
           temperature: request.temperature ?? 0.35,
           response_format: request.responseFormat === "json" ? { type: "json_object" } : undefined
         })

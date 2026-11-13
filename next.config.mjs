@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  outputFileTracingIncludes: {
-    "/api/generate-designs": ["./public/lettering-styles/*.png"]
-  }
+  reactStrictMode: true
 };
 
 export default nextConfig;

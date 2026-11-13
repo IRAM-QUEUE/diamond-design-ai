@@ -19,7 +19,6 @@ const { enforceConsultationPolicy } = load('src/lib/consultation-policy.ts');
 const { jewelryLetteringStyles } = load('src/config/jewelry-lettering-styles.ts');
 const { jewelryFonts } = load('src/config/jewelry-fonts.ts');
 const { buildDiamondConceptPrompts } = load('src/services/image/prompt-builder.ts');
-const { createLetteringStyleReferenceDataUrl } = load('src/services/image/lettering-style-reference.ts');
 const base = { ...emptyDesignProfile, jewelryType: 'Ring', metal: 'Rose gold', style: 'Minimal', setting: 'Solitaire', readyForGeneration: true };
 const response = profile => ({ assistantMessage: 'Creating your concept now.', updatedDesignProfile: profile, stage: 'ready_to_generate', suggestedActions: [], action: { type: 'generate_image' } });
 (async () => {
@@ -50,19 +49,18 @@ const response = profile => ({ assistantMessage: 'Creating your concept now.', u
   for (const style of jewelryLetteringStyles) {
     const profile = { ...base, style: '', jewelryType: 'Name pendant', letteringStylePreference: style.name, personalizationText: style.supportsLatin ? 'Lina' : 'نوران' };
     assert.equal(canGenerateDesign(profile), true);
-    const [concept] = buildDiamondConceptPrompts(profile, 'names_lettering', 'spelling', 'construction');
-    assert.deepEqual(concept.referenceImageUrls, ['spelling', 'construction']);
+    const [concept] = buildDiamondConceptPrompts(profile, 'names_lettering', 'spelling');
+    assert.deepEqual(concept.referenceImageUrls, ['spelling']);
     assert.ok(concept.prompt.includes(style.constructionDirection));
-    assert.ok(concept.prompt.includes('REFERENCE IMAGE 2 is a CONSTRUCTION STYLE GUIDE only'));
-    assert.ok(concept.prompt.includes('Never copy, merge, or substitute the sample name'));
+    assert.ok(concept.prompt.includes('No catalog photo or sample word is supplied'));
+    assert.ok(concept.prompt.includes('instead of appending letters to a remembered sample'));
     assert.ok(!concept.prompt.includes('black-and-silver'));
     assert.ok(concept.prompt.includes('Rose gold'));
-    const data = await createLetteringStyleReferenceDataUrl(style.name);
-    assert.match(data, /^data:image\/jpeg;base64,/);
-    const [onlyStyle] = buildDiamondConceptPrompts(profile, 'default', undefined, 'construction');
-    assert.ok(onlyStyle.prompt.includes('REFERENCE IMAGE 1 is a CONSTRUCTION STYLE GUIDE only'));
+    assert.ok(concept.prompt.includes(JSON.stringify(Array.from(profile.personalizationText))));
+    assert.ok(concept.prompt.includes('EVERY letter, including orthographically non-joining letters'));
+    const [noReference] = buildDiamondConceptPrompts(profile);
+    assert.deepEqual(noReference.referenceImageUrls, []);
   }
-  assert.equal(await createLetteringStyleReferenceDataUrl('../../secrets'), undefined);
   for (const font of jewelryFonts) {
     const profile = { ...base, style: '', fontPreference: font.name, personalizationText: font.supportsLatin ? 'Lina' : 'ليان' };
     assert.equal(canGenerateDesign(profile), true);

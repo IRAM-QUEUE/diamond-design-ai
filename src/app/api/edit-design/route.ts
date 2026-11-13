@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { ImageQualityReviewError, reviewPersonalizedImage } from "@/services/image/quality-review";
 import { serverEnv } from "@/config/env";
-import { estimatedImageCosts } from "@/config/costs";
+import { estimatedCosts, estimatedImageCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
 import { createDemoEditedConcept } from "@/lib/demo-data";
 import { normalizeDesignProfile } from "@/lib/design-profile";
@@ -113,15 +114,18 @@ export async function POST(request: Request) {
       designProfile: updatedDesignProfile
     });
 
+    const reviewCost = updatedDesignProfile.personalizationText ? estimatedCosts.openAiImageReview : 0;
+    const reviewMetadata = { reviewCost, reviewModel: updatedDesignProfile.personalizationText ? serverEnv.openaiModel : null };
     const reservation = await reserveImageCredit({
       userId: auth.user.id,
       sessionId,
       eventType: "image_edit",
       provider: "replicate",
       model: selectedModel,
-      estimatedCost: estimatedImageCosts[routing.effectivePreference],
+      estimatedCost: estimatedImageCosts[routing.effectivePreference] + reviewCost,
       metadata: {
         sourceImageId: body.sourceImageId,
+        ...reviewMetadata,
         model: selectedModel,
         ...routingMetadata
       }
@@ -147,6 +151,7 @@ export async function POST(request: Request) {
         variationName,
         model: selectedModel
       });
+      await reviewPersonalizedImage(image.url, updatedDesignProfile);
       const stored = await storeGeneratedImageFromUrl({
         url: image.url,
         userId: auth.user.id,
@@ -172,6 +177,8 @@ export async function POST(request: Request) {
           storagePath: stored.storagePath,
           sourceStoragePath: stored.sourceStoragePath,
           watermarked: true,
+          ...reviewMetadata,
+          personalizedImageReviewed: Boolean(updatedDesignProfile.personalizationText),
           model: selectedModel,
           ...routingMetadata
         }
@@ -181,8 +188,8 @@ export async function POST(request: Request) {
         await markUsageEventFailed({
           usageEventId: reservation.usageEventId,
           latencyMs: Date.now() - startedAt,
-          errorCode: error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
-          metadata: { sourceImageId: body.sourceImageId, model: selectedModel, ...routingMetadata }
+          errorCode: error instanceof ImageQualityReviewError ? "IMAGE_QUALITY_REJECTED" : error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
+          metadata: { sourceImageId: body.sourceImageId, model: selectedModel, ...reviewMetadata, ...routingMetadata }
         });
       } catch (statusError) {
         console.error("Reserved image edit usage event could not be marked failed.", statusError);

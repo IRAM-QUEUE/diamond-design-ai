@@ -22,15 +22,14 @@ const directions: Direction[] = [
 export function buildDiamondConceptPrompts(
   profile: DesignProfile,
   preference: ImageModelPreference = "default",
-  inscriptionImageUrl?: string,
-  styleImageUrl?: string
+  inscriptionImageUrl?: string
 ): JewelryImagePrompt[] {
-  const referenceImageUrls = [inscriptionImageUrl, styleImageUrl].filter((url): url is string => Boolean(url));
+  const referenceImageUrls = inscriptionImageUrl ? [inscriptionImageUrl] : [];
 
   return directions.map((direction) => ({
     variationName: direction.variationName,
     description: direction.description,
-    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(inscriptionImageUrl), Boolean(styleImageUrl)),
+    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(inscriptionImageUrl)),
     referenceImageUrls
   }));
 }
@@ -113,14 +112,13 @@ function buildGenerationPrompt(
   profile: DesignProfile,
   direction: Direction,
   preference: ImageModelPreference,
-  hasInscriptionReference: boolean,
-  hasStyleReference: boolean
+  hasInscriptionReference: boolean
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
   const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
-  const referenceDirective = buildGenerationReferenceDirective(profile, hasInscriptionReference, hasStyleReference);
+  const referenceDirective = buildGenerationReferenceDirective(profile, hasInscriptionReference);
 
   if (preference === "creative_exploration") {
     return [
@@ -151,25 +149,22 @@ function buildGenerationPrompt(
     .join(" ");
 }
 
-function buildGenerationReferenceDirective(profile: DesignProfile, hasInscriptionReference: boolean, hasStyleReference: boolean) {
-  const directives: string[] = [];
+function buildGenerationReferenceDirective(profile: DesignProfile, hasInscriptionReference: boolean) {
+  const directives = [
+    "Design the customer's complete request from a blank composition. Catalog style photos are inspiration only, never a source of inscription text or a template to copy.",
+    "No catalog photo or sample word is supplied. Derive the style from its construction specification. Recompose the entire requested inscription in that style instead of appending letters to a remembered sample.",
+    "The full customer inscription and physical integrity take priority over resembling any sample silhouette, proportions, or letter arrangement. Expand or rebalance the piece to fit all requested characters."
+  ];
   if (hasInscriptionReference && profile.personalizationText.trim()) {
     directives.push(
-      `REFERENCE IMAGE 1 is the sole AUTHORITATIVE SPELLING GUIDE for the exact inscription "${profile.personalizationText.trim()}".`,
+      `REFERENCE IMAGE 1 is the AUTHORITATIVE SPELLING GUIDE for the exact inscription "${profile.personalizationText.trim()}".`,
       "Use every character in its correct order, joining behavior, and dot placement. It supplies character identity only; do not copy its flat typography or white background."
-    );
-  }
-  if (hasStyleReference) {
-    directives.push(
-      `REFERENCE IMAGE ${hasInscriptionReference ? 2 : 1} is a CONSTRUCTION STYLE GUIDE only, for the selected ${profile.letteringStylePreference}.`,
-      "Match its silhouette, aspect ratio, stroke weight, negative space, dimensional treatment, and attachment arrangement, adapting the composition to the customer's exact inscription and chosen jewelry type.",
-      "Never copy, merge, or substitute the sample name or letters from the style guide. The customer's inscription and spelling guide are authoritative for text. The customer's chosen metal/color and stone treatment override the preview's materials."
     );
   }
   if (profile.letteringStylePreference || profile.fontPreference) {
     directives.push(
-      "The selected construction and font take priority over generic luxury ornament. Keep the requested silhouette and letterforms; do not replace them with a different catalog style.",
-      "Do not add a surrounding medallion frame, halo, border, backplate visible from the front, or extra decoration unless the selected construction style or customer explicitly calls for it. Use discreet rear supports when needed.",
+      "Use the selected construction and font for the new complete inscription, rather than substituting a generic luxury treatment.",
+      "Do not add a surrounding medallion frame, halo, border, backplate visible from the front, or extra decoration unless the selected construction style or customer explicitly calls for it. Structural bridges and a discreet rear support are permitted and required wherever needed for physical integrity.",
       "Apply only the specified stone treatment; do not automatically cover all strokes with pavé."
     );
   }
@@ -230,10 +225,14 @@ function buildExactLetteringDirective(profile: DesignProfile) {
 
   const base = [
     `Render the jewelry inscription once, exactly as "${exactText}".`,
+    `Character inventory in logical reading order (not a layout instruction): ${JSON.stringify(Array.from(exactText.normalize("NFC")))}. Include every character and every repeated occurrence; never shorten the name to a familiar word.`,
     "Do not translate, transliterate, substitute, add, remove, decorate, mirror, reverse, or duplicate any character.",
     "Treat the inscription as a production-feasible jewelry component, never as flat printed typography or a collection of loose symbols.",
     "Use believable fine-jewelry metal thickness, clean edges, load-bearing joins, and secure attachment points.",
-    "Every visible letter component must belong to one coherent wearable assembly; no piece may hover, float, balance loosely, or remain mechanically unsupported."
+    "Every visible letter component must belong to one coherent wearable assembly; no piece may hover, float, balance loosely, or remain mechanically unsupported.",
+    "Plan a continuous load-bearing metal path from EVERY letter, including orthographically non-joining letters, to the chain or jewelry body. Use small deliberate metal bridges or a continuous rear support; correct Arabic non-joining does not mean physically detached jewelry.",
+    "An isolated upright stroke or detached dot surrounded by empty space is unacceptable. Show a credible connection or a visible edge of continuous supporting metal; do not assume an invisible support across an open gap.",
+    "If preserving a sample-like outline would omit a letter or leave one floating, change the composition. Complete spelling and structural connection are mandatory."
   ];
   const constructionStyle = describeLetteringConstructionStyle(profile.letteringStylePreference);
 

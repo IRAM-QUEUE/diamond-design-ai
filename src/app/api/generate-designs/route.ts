@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { ImageQualityReviewError, reviewPersonalizedImage } from "@/services/image/quality-review";
 import { serverEnv } from "@/config/env";
-import { estimatedImageCosts } from "@/config/costs";
+import { estimatedCosts, estimatedImageCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
 import { createDemoConcepts } from "@/lib/demo-data";
 import { canGenerateDesign, normalizeDesignProfile } from "@/lib/design-profile";
@@ -24,7 +25,6 @@ import {
   buildDiamondConceptPrompts,
   resolveImageModel
 } from "@/services/image";
-import { createLetteringStyleReferenceDataUrl } from "@/services/image/lettering-style-reference";
 import { createInscriptionReferenceDataUrl } from "@/services/image/inscription-reference";
 import type { ChatMessage, DesignProfile } from "@/types/design";
 
@@ -78,24 +78,24 @@ export async function POST(request: Request) {
 
     const selectedModel = routing.modelIdentifier;
     const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText);
-    const styleImageUrl = await createLetteringStyleReferenceDataUrl(designProfile.letteringStylePreference);
     const prompts = buildDiamondConceptPrompts(
       designProfile,
       routing.effectivePreference,
-      inscriptionImageUrl,
-      styleImageUrl
+      inscriptionImageUrl
     ).map((prompt) => ({
       ...prompt,
       model: selectedModel
     }));
+    const reviewCost = designProfile.personalizationText ? estimatedCosts.openAiImageReview : 0;
+    const reviewMetadata = { reviewCost, reviewModel: designProfile.personalizationText ? serverEnv.openaiModel : null };
     const reservation = await reserveImageCredit({
       userId: auth.user.id,
       sessionId,
       eventType: "image_generation",
       provider: "replicate",
       model: selectedModel,
-      estimatedCost: estimatedImageCosts[routing.effectivePreference],
-      metadata: { promptCount: prompts.length, model: selectedModel, ...routingMetadata }
+      estimatedCost: estimatedImageCosts[routing.effectivePreference] + reviewCost,
+      metadata: { promptCount: prompts.length, model: selectedModel, ...reviewMetadata, ...routingMetadata }
     });
     const startedAt = Date.now();
     const savedImages = [];
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       const images = await provider.generateDesigns(prompts);
 
       for (const image of images) {
+        await reviewPersonalizedImage(image.url, designProfile);
         const normalizedImage = {
           ...image,
           rootId: image.rootId || image.id
@@ -134,6 +135,8 @@ export async function POST(request: Request) {
             storagePath: stored.storagePath,
             sourceStoragePath: stored.sourceStoragePath,
             watermarked: true,
+            ...reviewMetadata,
+            personalizedImageReviewed: Boolean(designProfile.personalizationText),
             model: selectedModel,
             ...routingMetadata
           }
@@ -146,8 +149,8 @@ export async function POST(request: Request) {
         await markUsageEventFailed({
           usageEventId: reservation.usageEventId,
           latencyMs: Date.now() - startedAt,
-          errorCode: error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
-          metadata: { promptCount: prompts.length, model: selectedModel, ...routingMetadata }
+          errorCode: error instanceof ImageQualityReviewError ? "IMAGE_QUALITY_REJECTED" : error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
+          metadata: { promptCount: prompts.length, model: selectedModel, ...reviewMetadata, ...routingMetadata }
         });
       } catch (statusError) {
         console.error("Reserved image generation usage event could not be marked failed.", statusError);
