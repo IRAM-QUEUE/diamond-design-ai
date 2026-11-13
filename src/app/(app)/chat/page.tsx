@@ -38,7 +38,7 @@ import { CustomerDetailsDialog } from "@/components/chat/customer-details-dialog
 import { submitWorkshopOrder, type HandoffReceipt } from "@/lib/submit-workshop-order";
 import { AdvancedImageSettings } from "@/components/chat/advanced-image-settings";
 import { useAuth } from "@/components/auth/auth-provider";
-import { normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
+import { canGenerateDesign, normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
 import { createHandoffContext } from "@/lib/handoff-context";
 import { isUuid } from "@/lib/shop-order";
 import { requiresArabicJewelryLettering } from "@/lib/personalization";
@@ -134,6 +134,8 @@ export default function ChatPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [handoffProgress, setHandoffProgress] = useState("");
   const finalizingRef = useRef(false);
+  const sendingRef = useRef(false);
+  const imageOperationRef = useRef(false);
   const [handoffIntent, setHandoffIntent] = useState<HandoffIntent>("prepare_brief");
   const [finalizedConceptId, setFinalizedConceptId] = useState("");
   const [designBrief, setDesignBrief] = useState<DesignBrief | null>(null);
@@ -471,7 +473,7 @@ export default function ChatPage() {
 
   async function sendMessage(content: string) {
     const trimmed = content.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || sendingRef.current || imageOperationRef.current) return;
     if (usageLimitReached) {
       setError(usageLimitMessage);
       return;
@@ -485,6 +487,7 @@ export default function ChatPage() {
     };
     const nextMessages = [...messages, userMessage];
 
+    sendingRef.current = true;
     setMessages(nextMessages);
     setInput("");
     setError("");
@@ -522,18 +525,18 @@ export default function ChatPage() {
       setDesignProfile(updatedProfile);
       setStage(payload.stage ?? "discovery");
       setSuggestedActions(cleanClientSuggestions(payload.suggestedActions));
-      setIsSending(false);
       await runChatAction(payload.action ?? { type: "chat" }, updatedProfile);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Something went wrong. Please try again.");
     } finally {
+      sendingRef.current = false;
       setIsSending(false);
     }
   }
 
   async function runChatAction(action: ChatAction, updatedProfile: DesignProfile) {
     if (action.type === "generate_image") {
-      await generateConcepts({ forceReady: true, profileOverride: updatedProfile });
+      await generateConcepts({ profileOverride: updatedProfile });
       return;
     }
 
@@ -561,10 +564,10 @@ export default function ChatPage() {
     return activeConcept ?? latestUserProvidedConcept(sortedConcepts) ?? latestEditableConcept(sortedConcepts);
   }
 
-  async function generateConcepts(options?: { forceReady?: boolean; profileOverride?: DesignProfile }) {
+  async function generateConcepts(options?: { profileOverride?: DesignProfile }) {
     const generationProfile = options?.profileOverride ?? designProfile;
-    const readyForGeneration = options?.forceReady || generationProfile.readyForGeneration;
-    if (!readyForGeneration || isGenerating) return;
+    const readyForGeneration = canGenerateDesign(generationProfile);
+    if (!readyForGeneration || imageOperationRef.current) return;
     if (!user && !(isDemoMode && !process.env.NEXT_PUBLIC_SUPABASE_URL)) {
       setError("Sign in to save your designs and generate AI concepts.");
       return;
@@ -575,6 +578,7 @@ export default function ChatPage() {
     }
 
     setError("");
+    imageOperationRef.current = true;
     setIsGenerating(true);
 
     try {
@@ -582,7 +586,7 @@ export default function ChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({
-          designProfile: { ...generationProfile, readyForGeneration: true },
+          designProfile: generationProfile,
           conversationContext: messages,
           sessionId
         })
@@ -616,6 +620,7 @@ export default function ChatPage() {
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : "Image generation failed. Please try again.");
     } finally {
+      imageOperationRef.current = false;
       setIsGenerating(false);
     }
   }
@@ -631,6 +636,7 @@ export default function ChatPage() {
     instruction: string,
     options?: { closeDialog?: boolean; profileOverride?: DesignProfile }
   ) {
+    if (imageOperationRef.current) return;
     if (!user && !(isDemoMode && !process.env.NEXT_PUBLIC_SUPABASE_URL)) {
       setError("Sign in to save your designs and generate AI concepts.");
       return;
@@ -641,6 +647,7 @@ export default function ChatPage() {
     }
 
     setError("");
+    imageOperationRef.current = true;
     setIsEditing(true);
 
     try {
@@ -689,6 +696,7 @@ export default function ChatPage() {
     } catch (editError) {
       setError(editError instanceof Error ? editError.message : "Image editing failed. Please try again.");
     } finally {
+      imageOperationRef.current = false;
       setIsEditing(false);
     }
   }

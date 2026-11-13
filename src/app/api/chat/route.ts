@@ -3,6 +3,8 @@ import { serverEnv } from "@/config/env";
 import { estimatedCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
 import { diamondConsultantSystemPrompt } from "@/lib/diamond-consultant-prompt";
+import { enforceConsultationPolicy } from "@/lib/consultation-policy";
+import { containsArabicText } from "@/lib/personalization";
 import { normalizeDesignProfile, normalizeStage } from "@/lib/design-profile";
 import { requireRateLimit } from "@/lib/rate-limit";
 import { logUsageEvent, requireAuthenticatedUser, requireImageCredits } from "@/lib/supabase-server";
@@ -11,7 +13,7 @@ import type { ChatAction, ChatApiRequest, ChatApiResponse, ChatImageContext, Cha
 
 export const runtime = "nodejs";
 
-type ConsultantModelResponse = Partial<ChatApiResponse>;
+type ConsultantModelResponse = Partial<ChatApiResponse> & { awaitingCustomerAnswer?: boolean };
 
 export async function POST(request: Request) {
   try {
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
         ? parsed.updatedDesignProfile
         : {};
     const updatedDesignProfile = normalizeDesignProfile({
+      ...designProfile,
       ...modelProfile,
       letteringStylePreference:
         typeof modelProfile.letteringStylePreference === "string"
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
       metadata: { messageCount: messages.length }
     });
 
-    return NextResponse.json({
+    return NextResponse.json(enforceConsultationPolicy({
       assistantMessage:
         typeof parsed.assistantMessage === "string" && parsed.assistantMessage.trim()
           ? parsed.assistantMessage.trim()
@@ -112,7 +115,7 @@ export async function POST(request: Request) {
       stage,
       suggestedActions: normalizeSuggestedActions(parsed.suggestedActions),
       action: normalizeChatAction(parsed.action, images)
-    } satisfies ChatApiResponse);
+    } satisfies ChatApiResponse, parsed.awaitingCustomerAnswer !== false, containsArabicText(messages.filter((message) => message.role === "user").at(-1)?.content)));
   } catch (error) {
     if (error instanceof MissingOpenAiApiKeyError) {
       return NextResponse.json(

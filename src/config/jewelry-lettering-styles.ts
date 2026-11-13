@@ -50,7 +50,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
     tags: ["Compact", "Vertical", "Emblem"],
     note: "The name is composed into a compact upright emblem for distinctive pendants, charms, and signet-like pieces.",
     constructionDirection:
-      "a compact upright Arabic calligraphic monogram that interweaves the entire exact right-to-left name into one seal-like emblem while preserving recognizable letter anatomy and reading order; do not stack separate letters in a literal top-to-bottom column; use interlocked load-bearing strokes, controlled negative space, one strong centered bail, and secure every dot or mark with a discreet bridge or shared rear support",
+      "a compact upright Arabic calligraphic monogram that interweaves the entire exact right-to-left name into one elongated upright openwork emblem whose outline is formed by the letter strokes themselves, without an enclosing medallion frame or ornamental border while preserving recognizable letter anatomy and reading order; do not stack separate letters in a literal top-to-bottom column; use interlocked load-bearing strokes, controlled negative space, one strong centered bail, and secure every dot or mark with a discreet bridge or shared rear support",
     supportsArabic: true,
     supportsLatin: false
   },

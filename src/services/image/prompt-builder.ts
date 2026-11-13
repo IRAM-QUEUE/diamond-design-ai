@@ -22,14 +22,15 @@ const directions: Direction[] = [
 export function buildDiamondConceptPrompts(
   profile: DesignProfile,
   preference: ImageModelPreference = "default",
-  inscriptionImageUrl?: string
+  inscriptionImageUrl?: string,
+  styleImageUrl?: string
 ): JewelryImagePrompt[] {
-  const referenceImageUrls = inscriptionImageUrl ? [inscriptionImageUrl] : [];
+  const referenceImageUrls = [inscriptionImageUrl, styleImageUrl].filter((url): url is string => Boolean(url));
 
   return directions.map((direction) => ({
     variationName: direction.variationName,
     description: direction.description,
-    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(inscriptionImageUrl)),
+    prompt: buildGenerationPrompt(profile, direction, preference, Boolean(inscriptionImageUrl), Boolean(styleImageUrl)),
     referenceImageUrls
   }));
 }
@@ -112,13 +113,14 @@ function buildGenerationPrompt(
   profile: DesignProfile,
   direction: Direction,
   preference: ImageModelPreference,
-  hasInscriptionReference: boolean
+  hasInscriptionReference: boolean,
+  hasStyleReference: boolean
 ) {
   const profileDetails = describeProfile(profile);
   const personalization = describePersonalization(profile);
   const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
-  const referenceDirective = buildGenerationReferenceDirective(profile, hasInscriptionReference);
+  const referenceDirective = buildGenerationReferenceDirective(profile, hasInscriptionReference, hasStyleReference);
 
   if (preference === "creative_exploration") {
     return [
@@ -128,7 +130,7 @@ function buildGenerationPrompt(
       personalization,
       letteringDirective,
       textConstraint,
-      "Photograph the finished piece in a refined, unbranded high-end studio setting with premium lighting, precise reflections, crisp diamond facets, realistic metal texture, and elegant black-and-silver styling.",
+      "Photograph the finished piece in a refined, unbranded high-end studio setting with premium lighting, precise reflections, crisp diamond facets, realistic metal texture, and a neutral backdrop that preserves the customer-selected metal color.",
       "Use a square composition with the jewelry in sharp macro focus."
     ]
       .filter(Boolean)
@@ -143,22 +145,35 @@ function buildGenerationPrompt(
     letteringDirective,
     textConstraint,
     "Show the finished piece as photorealistic luxury diamond jewelry product photography in a square composition.",
-    "Use premium studio lighting, crisp diamond facets, precise elegant reflections, realistic metal texture, sharp macro focus, and refined unbranded black-and-silver studio styling."
+    "Use premium studio lighting, crisp diamond facets, precise elegant reflections, realistic metal texture, sharp macro focus, and a refined unbranded neutral backdrop; preserve the customer-selected metal color exactly."
   ]
     .filter(Boolean)
     .join(" ");
 }
 
-function buildGenerationReferenceDirective(profile: DesignProfile, hasInscriptionReference: boolean) {
-  const exactText = profile.personalizationText.trim();
-  if (!hasInscriptionReference || !exactText) return "";
-
-  return [
-    `REFERENCE IMAGE 1 is the sole AUTHORITATIVE SPELLING GUIDE for the exact inscription "${exactText}".`,
-    "Use every character shown there, in its correct order, joining behavior, and dot placement, as the exact inscription to construct in jewelry.",
-    "The reference supplies character identity only; do not copy its flat black text presentation or white background.",
-    "No style-preview jewelry image is supplied to the model. Derive the requested construction style exclusively from the written style specification, never from a remembered or generic sample word."
-  ].join(" ");
+function buildGenerationReferenceDirective(profile: DesignProfile, hasInscriptionReference: boolean, hasStyleReference: boolean) {
+  const directives: string[] = [];
+  if (hasInscriptionReference && profile.personalizationText.trim()) {
+    directives.push(
+      `REFERENCE IMAGE 1 is the sole AUTHORITATIVE SPELLING GUIDE for the exact inscription "${profile.personalizationText.trim()}".`,
+      "Use every character in its correct order, joining behavior, and dot placement. It supplies character identity only; do not copy its flat typography or white background."
+    );
+  }
+  if (hasStyleReference) {
+    directives.push(
+      `REFERENCE IMAGE ${hasInscriptionReference ? 2 : 1} is a CONSTRUCTION STYLE GUIDE only, for the selected ${profile.letteringStylePreference}.`,
+      "Match its silhouette, aspect ratio, stroke weight, negative space, dimensional treatment, and attachment arrangement, adapting the composition to the customer's exact inscription and chosen jewelry type.",
+      "Never copy, merge, or substitute the sample name or letters from the style guide. The customer's inscription and spelling guide are authoritative for text. The customer's chosen metal/color and stone treatment override the preview's materials."
+    );
+  }
+  if (profile.letteringStylePreference || profile.fontPreference) {
+    directives.push(
+      "The selected construction and font take priority over generic luxury ornament. Keep the requested silhouette and letterforms; do not replace them with a different catalog style.",
+      "Do not add a surrounding medallion frame, halo, border, backplate visible from the front, or extra decoration unless the selected construction style or customer explicitly calls for it. Use discreet rear supports when needed.",
+      "Apply only the specified stone treatment; do not automatically cover all strokes with pavé."
+    );
+  }
+  return directives.join(" ");
 }
 
 function describeProfile(profile: DesignProfile) {
@@ -234,7 +249,7 @@ function buildExactLetteringDirective(profile: DesignProfile) {
     );
   } else {
     base.push(
-      "For freestanding or raised lettering, connect separate glyph sections with natural letter strokes or discreet structural metal bridges, a baseline rail, rim, or rear support that preserves the intended letter shapes.",
+      "For freestanding or raised lettering, connect separate glyph sections with natural letter strokes or discreet structural metal bridges, or rear support that preserves the intended letter shapes and selected silhouette; do not introduce a visible surrounding frame unless requested.",
       "The chain, bail, band, or jewelry body must connect securely to the complete lettering assembly rather than to a fragile isolated stroke."
     );
   }

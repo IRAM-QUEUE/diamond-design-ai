@@ -3,7 +3,7 @@ import { serverEnv } from "@/config/env";
 import { estimatedImageCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
 import { createDemoConcepts } from "@/lib/demo-data";
-import { normalizeDesignProfile } from "@/lib/design-profile";
+import { canGenerateDesign, normalizeDesignProfile } from "@/lib/design-profile";
 import { requireRateLimit } from "@/lib/rate-limit";
 import {
   getOrCreateDesignSession,
@@ -24,6 +24,7 @@ import {
   buildDiamondConceptPrompts,
   resolveImageModel
 } from "@/services/image";
+import { createLetteringStyleReferenceDataUrl } from "@/services/image/lettering-style-reference";
 import { createInscriptionReferenceDataUrl } from "@/services/image/inscription-reference";
 import type { ChatMessage, DesignProfile } from "@/types/design";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     const body = await parseJsonBody<GenerateDesignsBody>(request);
     const designProfile = normalizeDesignProfile(body.designProfile);
 
-    if (!designProfile.readyForGeneration) {
+    if (!canGenerateDesign(designProfile)) {
       throw new ApiInputError("The design direction is not ready yet. Continue the consultation before generating concepts.");
     }
 
@@ -77,10 +78,12 @@ export async function POST(request: Request) {
 
     const selectedModel = routing.modelIdentifier;
     const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText);
+    const styleImageUrl = await createLetteringStyleReferenceDataUrl(designProfile.letteringStylePreference);
     const prompts = buildDiamondConceptPrompts(
       designProfile,
       routing.effectivePreference,
-      inscriptionImageUrl
+      inscriptionImageUrl,
+      styleImageUrl
     ).map((prompt) => ({
       ...prompt,
       model: selectedModel
