@@ -25,15 +25,16 @@ function loader(mocks = {}) {
 }
 const load = loader();
 const { emptyDesignProfile } = load('src/types/design.ts');
-const { reviewPersonalizedImage, ImageQualityReviewError } = load('src/services/image/quality-review.ts');
+const { reviewPersonalizedImage } = load('src/services/image/quality-review.ts');
 const good = text => ({ observedCharacters: Array.from(text.replace(/\s/gu, "")), observedInscription: text, confident: true, allComponentsSupported: true, styleMatches: true, issues: [] });
+const ProviderError = load('src/services/image/provider.ts').ImageGenerationError;
 const profile = { ...emptyDesignProfile, jewelryType: 'Pendant', metal: 'Yellow gold', setting: 'Full pavé', letteringStylePreference: 'Geometric Kufi', personalizationScript: 'Arabic', personalizationText: 'نوران', readyForGeneration: true };
 (async () => {
   const texts = ['نوران', 'سارة', 'عبد الرحمن', 'Lillian', 'Éloïse', 'A.B.', 'Nina 2026'];
   for (const text of texts) {
     let request;
     const provider = { complete: async input => { request = input; return { content: JSON.stringify(good(text)) }; } };
-    await reviewPersonalizedImage('https://example.com/candidate.png', { ...profile, personalizationText: text }, provider);
+    assert.deepEqual(await reviewPersonalizedImage('https://example.com/candidate.png', { ...profile, personalizationText: text }, provider), []);
     // The visual reviewer gets no expected name, so it cannot fill in missing letters from the request.
     assert.ok(!JSON.stringify(request).includes(text));
     assert.equal(request.messages[1].content[1].image_url.detail, 'high');
@@ -50,10 +51,10 @@ const profile = { ...emptyDesignProfile, jewelryType: 'Pendant', metal: 'Yellow 
     { observedInscription: 'نوران' },
     [], null
   ]) {
-    await assert.rejects(reviewPersonalizedImage('https://example.com/candidate.png', profile, { complete: async () => ({ content: JSON.stringify(result) }) }), ImageQualityReviewError);
+    assert.ok((await reviewPersonalizedImage('https://example.com/candidate.png', profile, { complete: async () => ({ content: JSON.stringify(result) }) })).length > 0);
   }
-  await assert.rejects(reviewPersonalizedImage('url', profile, { complete: async () => ({ content: 'invalid JSON' }) }), ImageQualityReviewError);
-  await assert.rejects(reviewPersonalizedImage('url', profile, { complete: async () => { throw new Error('Review unavailable'); } }), ImageQualityReviewError);
+  assert.deepEqual(await reviewPersonalizedImage('url', profile, { complete: async () => ({ content: 'invalid JSON' }) }), ['unverified']);
+  assert.deepEqual(await reviewPersonalizedImage('url', profile, { complete: async () => { throw new Error('Review unavailable'); } }), ['unverified']);
   await reviewPersonalizedImage('url', emptyDesignProfile, { complete: async () => { throw new Error('Non-personalized images must skip this review'); } });
   // Check the real LLM adapter sends both text and images without changing ordinary text messages.
   const originalFetch = global.fetch;
@@ -67,9 +68,10 @@ const profile = { ...emptyDesignProfile, jewelryType: 'Pendant', metal: 'Yellow 
     await provider.complete({ messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'image', detail: 'high' } }] }] });
     assert.equal(sent.messages[0].content[0].image_url.url, 'image');
   } finally { global.fetch = originalFetch; }
-  // Exercise both API flows: rejected images must never be stored or returned, and credits must be released.
+  // Exercise both API flows: review concerns never block a successful provider result.
   for (const operation of ['generate-designs', 'edit-design']) {
-    let failReview = true;
+    let advise = true;
+    let providerFails = false;
     let reviewCalls = 0;
     let stored = 0;
     let failed = 0;
@@ -81,24 +83,25 @@ const profile = { ...emptyDesignProfile, jewelryType: 'Pendant', metal: 'Yellow 
       '@/lib/demo-data': {},
       '@/lib/edit-profile': { updateDesignProfileFromEdit: value => value },
       '@/services/image/inscription-reference': { createInscriptionReferenceDataUrl: async () => 'spelling' },
-      '@/services/image/quality-review': { ImageQualityReviewError, reviewPersonalizedImage: async (_url, receivedProfile) => {
+      '@/services/image/quality-review': { reviewPersonalizedImage: async (_url, receivedProfile) => {
         reviewCalls++;
         assert.equal(receivedProfile.personalizationText, 'نوران');
-        if (failReview) throw new ImageQualityReviewError();
+        return advise ? ["style", "construction"] : [];
       } },
       '@/services/image': {
         ...load('src/services/image/provider.ts'),
+        ImageGenerationError: ProviderError,
         resolveImageModel: () => ({ modelIdentifier: 'image-model', effectivePreference: 'names_lettering' }),
         buildDiamondConceptPrompts: () => [{ prompt: 'test', referenceImageUrls: ['spelling'] }],
         buildEditPrompt: () => 'test',
-        ReplicateImageProvider: class { async generateDesigns() { return [image]; } async editDesign() { return image; } }
+        ReplicateImageProvider: class { async generateDesigns() { if (providerFails) throw new ProviderError("Provider failure"); return [image]; } async editDesign() { if (providerFails) throw new ProviderError("Provider failure"); return image; } }
       },
       '@/lib/supabase-server': {
         UsageReservationError: class extends Error {},
         requireAuthenticatedUser: async () => ({ user: { id: 'user' } }), requireAiAccess: () => null,
         getOrCreateDesignSession: async () => 'session', getEditableImageUrlForUser: async () => 'https://example.com/source.png',
         reserveImageCredit: async input => { assert.ok(input.estimatedCost > 0); return { usageEventId: 'reservation' }; },
-        markUsageEventFailed: async input => { failed++; assert.equal(input.errorCode, 'IMAGE_QUALITY_REJECTED'); },
+        markUsageEventFailed: async () => { failed++; },
         markUsageEventSucceeded: async () => { succeeded++; },
         storeGeneratedImageFromUrl: async () => { stored++; return { signedUrl: 'stored-url' }; },
         persistDesignImage: async () => ({ id: 'saved' }), mapImageRecordToConcept: async value => value
@@ -107,17 +110,35 @@ const profile = { ...emptyDesignProfile, jewelryType: 'Pendant', metal: 'Yellow 
     const route = loader(mocks)(`src/app/api/${operation}/route.ts`);
     const request = () => new Request(`http://localhost/api/${operation}`, { method: 'POST', body: JSON.stringify({ designProfile: profile, imageUrl: 'https://example.com/source.png', sourceImageId: 'source', sourceVersion: 1, editInstruction: 'Use yellow gold' }) });
     let result = await route.POST(request());
-    assert.equal(result.status, 502);
-    assert.match((await result.json()).error, /No image credit was used/);
+    assert.equal(result.status, 200);
+    const payload = await result.json();
+    assert.deepEqual(payload.reviewAdvisories, [{ imageId: 'image', concerns: ['style', 'construction'] }]);
+    assert.ok(operation === 'generate-designs' ? payload.images.length : payload.image);
     assert.equal(reviewCalls, 1);
-    assert.equal(stored, 0);
-    assert.equal(failed, 1);
-    assert.equal(succeeded, 0);
-    failReview = false;
+    assert.equal(stored, 1);
+    assert.equal(failed, 0);
+    assert.equal(succeeded, 1);
+    advise = false;
     result = await route.POST(request());
     assert.equal(result.status, 200);
-    assert.equal(stored, 1);
-    assert.equal(succeeded, 1);
+    assert.deepEqual((await result.json()).reviewAdvisories, []);
+    assert.equal(stored, 2);
+    assert.equal(succeeded, 2);
+    providerFails = true;
+    result = await route.POST(request());
+    assert.equal(result.status, 502);
+    assert.equal(stored, 2);
+    assert.equal(failed, 1);
   }
-  console.log('PASS: independent Arabic/Latin transcription, complete character matching, support/style checks, fail-closed review, text/vision adapter, and generation/edit rejection before persistence with credit release.');
+  const { imageReviewAdvice } = load('src/lib/image-review-advice.ts');
+  for (const arabic of [false, true]) {
+    assert.equal(imageReviewAdvice([], arabic), '');
+    for (const concern of ['style', 'construction', 'lettering', 'unverified']) {
+      assert.ok(imageReviewAdvice([concern], arabic).length > 40);
+    }
+  }
+  assert.match(imageReviewAdvice(['style'], false), /another style or a different name/);
+  assert.ok(!imageReviewAdvice(['unverified'], false).includes('impossible'));
+
+  console.log('PASS: independent Arabic/Latin transcription, advisory character/support/style checks, review outages, bilingual advice, successful generation/edit delivery with warnings, and provider failure credit handling.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

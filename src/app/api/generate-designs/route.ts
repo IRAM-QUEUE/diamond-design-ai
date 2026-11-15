@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ImageQualityReviewError, reviewPersonalizedImage } from "@/services/image/quality-review";
+import { reviewPersonalizedImage } from "@/services/image/quality-review";
 import { serverEnv } from "@/config/env";
 import { estimatedCosts, estimatedImageCosts } from "@/config/costs";
 import { ApiInputError, handleApiError, methodNotAllowed, parseJsonBody } from "@/lib/api-response";
@@ -26,7 +26,7 @@ import {
   resolveImageModel
 } from "@/services/image";
 import { createInscriptionReferenceDataUrl } from "@/services/image/inscription-reference";
-import type { ChatMessage, DesignProfile } from "@/types/design";
+import type { ChatMessage, DesignProfile, ImageReviewAdvisory } from "@/types/design";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -99,13 +99,15 @@ export async function POST(request: Request) {
     });
     const startedAt = Date.now();
     const savedImages = [];
+    const reviewAdvisories: ImageReviewAdvisory[] = [];
 
     try {
       const provider = new ReplicateImageProvider();
       const images = await provider.generateDesigns(prompts);
 
       for (const image of images) {
-        await reviewPersonalizedImage(image.url, designProfile);
+        const concerns = await reviewPersonalizedImage(image.url, designProfile);
+        if (concerns.length) reviewAdvisories.push({ imageId: image.id, concerns });
         const normalizedImage = {
           ...image,
           rootId: image.rootId || image.id
@@ -136,6 +138,7 @@ export async function POST(request: Request) {
             sourceStoragePath: stored.sourceStoragePath,
             watermarked: true,
             ...reviewMetadata,
+            imageReviewConcerns: concerns,
             personalizedImageReviewed: Boolean(designProfile.personalizationText),
             model: selectedModel,
             ...routingMetadata
@@ -149,7 +152,7 @@ export async function POST(request: Request) {
         await markUsageEventFailed({
           usageEventId: reservation.usageEventId,
           latencyMs: Date.now() - startedAt,
-          errorCode: error instanceof ImageQualityReviewError ? "IMAGE_QUALITY_REJECTED" : error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
+          errorCode: error instanceof ImageGenerationError ? "IMAGE_PROVIDER_ERROR" : "IMAGE_FLOW_ERROR",
           metadata: { promptCount: prompts.length, model: selectedModel, ...reviewMetadata, ...routingMetadata }
         });
       } catch (statusError) {
@@ -159,7 +162,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    return NextResponse.json({ images: savedImages, sessionId, ...routingMetadata });
+    return NextResponse.json({ images: savedImages, reviewAdvisories, sessionId, ...routingMetadata });
   } catch (error) {
     if (error instanceof UsageReservationError) {
       return NextResponse.json(

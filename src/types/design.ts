@@ -1,3 +1,6 @@
+export type ImageReviewConcern = "lettering" | "construction" | "style" | "unverified";
+export type ImageReviewAdvisory = { imageId: string; concerns: ImageReviewConcern[] };
+
 export type ConversationStage = "discovery" | "refinement" | "ready_to_generate";
 
 export type ImageModelPreference =

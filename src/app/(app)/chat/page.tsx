@@ -38,6 +38,8 @@ import { CustomerDetailsDialog } from "@/components/chat/customer-details-dialog
 import { submitWorkshopOrder, type HandoffReceipt } from "@/lib/submit-workshop-order";
 import { AdvancedImageSettings } from "@/components/chat/advanced-image-settings";
 import { useAuth } from "@/components/auth/auth-provider";
+import { imageReviewAdvice } from "@/lib/image-review-advice";
+import type { ImageReviewAdvisory } from "@/types/design";
 import { canGenerateDesign, normalizeDesignProfile, statusLabel } from "@/lib/design-profile";
 import { createHandoffContext } from "@/lib/handoff-context";
 import { isUuid } from "@/lib/shop-order";
@@ -113,7 +115,7 @@ type HandoffIntent = "prepare_brief" | "send_to_shop";
 
 export default function ChatPage() {
   const { user, supabase, getAccessToken } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([initialAssistantMessage]);
   const [designProfile, setDesignProfile] = useState<DesignProfile>(emptyDesignProfile);
   const [stage, setStage] = useState<ConversationStage>("discovery");
@@ -564,6 +566,16 @@ export default function ChatPage() {
     return activeConcept ?? latestUserProvidedConcept(sortedConcepts) ?? latestEditableConcept(sortedConcepts);
   }
 
+  function appendReviewAdvice(advisories: ImageReviewAdvisory[] = [], timestamp: number) {
+    const notes = advisories.map((advisory, index) => ({
+      id: crypto.randomUUID(),
+      role: "assistant" as const,
+      content: imageReviewAdvice(advisory.concerns, language === "ar"),
+      createdAt: new Date(timestamp + index).toISOString()
+    })).filter((note) => note.content);
+    if (notes.length) setMessages((current) => [...current, ...notes]);
+  }
+
   async function generateConcepts(options?: { profileOverride?: DesignProfile }) {
     const generationProfile = options?.profileOverride ?? designProfile;
     const readyForGeneration = canGenerateDesign(generationProfile);
@@ -593,6 +605,7 @@ export default function ChatPage() {
       });
       const payload = (await response.json()) as {
         images?: GeneratedConcept[];
+        reviewAdvisories?: ImageReviewAdvisory[];
         error?: string;
         demoMode?: boolean;
         sessionId?: string;
@@ -609,6 +622,7 @@ export default function ChatPage() {
         createdAt: new Date(receivedAt + index).toISOString()
       }));
       setGeneratedConcepts((current) => [...current, ...orderedImages]);
+      appendReviewAdvice(payload.reviewAdvisories, receivedAt + orderedImages.length);
       if (payload.sessionId) setSessionId(payload.sessionId);
       setSelectedConceptId(orderedImages[0].id);
       setDesignBrief(null);
@@ -667,6 +681,7 @@ export default function ChatPage() {
       });
       const payload = (await response.json()) as {
         image?: GeneratedConcept;
+        reviewAdvisories?: ImageReviewAdvisory[];
         updatedDesignProfile?: DesignProfile;
         error?: string;
         demoMode?: boolean;
@@ -680,6 +695,7 @@ export default function ChatPage() {
 
       const orderedImage = { ...payload.image, createdAt: new Date().toISOString() };
       setGeneratedConcepts((current) => [...current, orderedImage]);
+      appendReviewAdvice(payload.reviewAdvisories, new Date(orderedImage.createdAt).getTime() + 1);
       if (payload.sessionId) setSessionId(payload.sessionId);
       setSelectedConceptId(orderedImage.id);
       setDesignProfile(normalizeDesignProfile(payload.updatedDesignProfile));
