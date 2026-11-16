@@ -1,3 +1,4 @@
+import { jewelryVocabularyReference } from "@/config/jewelry-vocabulary";
 import type { ChatMessage, GeneratedConcept } from "@/types/design";
 
 export function buildDesignBriefPrompt({
@@ -30,6 +31,10 @@ You are preparing a luxury diamond jewelry workshop handoff document.
 
 This is not CAD, not 3D, not a manufacturing-ready file, and not a production guarantee.
 The brief bridges AI visual inspiration and review by a professional jeweler.
+
+Terminology reference (use only when relevant):
+${jewelryVocabularyReference}
+For this brief, generic realism goals in image prompts are not verified image features or customer specifications. Use manufacturing/fit/clearance terms as workshop review points; never invent dimensions, 18K purity, mechanisms, certifications or production-ready status from them. Preserve the authoritative selected design.
 
 Output language requirements:
 ${arabicOutputInstruction}

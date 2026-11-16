@@ -1,3 +1,4 @@
+import { buildJewelryVocabularyGuidance } from "@/config/jewelry-vocabulary";
 import { containsArabicText } from "@/lib/personalization";
 import { jewelryFonts } from "@/config/jewelry-fonts";
 import { jewelryLetteringStyles } from "@/config/jewelry-lettering-styles";
@@ -47,7 +48,7 @@ export function buildEditPrompt({
 }) {
   const preserved = getPreservedElements(editInstruction);
   const preservationSentence = `Keep unchanged: ${preserved.join(", ")}.`;
-  const profileDetails = describeProfile(designProfile);
+  const profileDetails = [describeProfile(designProfile), buildJewelryVocabularyGuidance(designProfile, editInstruction)].filter(Boolean).join("\n");
   const personalization = describePersonalization(designProfile);
   const letteringDirective = buildExactLetteringDirective(designProfile);
   const textConstraint = buildImageTextConstraint(designProfile, true);
@@ -114,7 +115,7 @@ function buildGenerationPrompt(
   preference: ImageModelPreference,
   hasInscriptionReference: boolean
 ) {
-  const profileDetails = describeProfile(profile);
+  const profileDetails = [describeProfile(profile), buildJewelryVocabularyGuidance(profile)].filter(Boolean).join("\n");
   const personalization = describePersonalization(profile);
   const letteringDirective = buildExactLetteringDirective(profile);
   const textConstraint = buildImageTextConstraint(profile, false);
