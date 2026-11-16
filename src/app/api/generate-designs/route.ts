@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     });
 
     const selectedModel = routing.modelIdentifier;
-    const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText);
+    const inscriptionImageUrl = await createInscriptionReferenceDataUrl(designProfile.personalizationText, designProfile);
     const prompts = buildDiamondConceptPrompts(
       designProfile,
       routing.effectivePreference,

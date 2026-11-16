@@ -39,17 +39,24 @@ export function buildEditPrompt({
   designProfile,
   editInstruction,
   sourceVariationName,
-  preference = "default"
+  preference = "default",
+  hasInscriptionReference = false
 }: {
   designProfile: DesignProfile;
   editInstruction: string;
   sourceVariationName: string;
   preference?: ImageModelPreference;
+  hasInscriptionReference?: boolean;
 }) {
   const preserved = getPreservedElements(editInstruction);
+  const relettering = changesLetteringConstruction(editInstruction);
   const preservationSentence = `Keep unchanged: ${preserved.join(", ")}.`;
   const profileDetails = [describeProfile(designProfile), buildJewelryVocabularyGuidance(designProfile, editInstruction)].filter(Boolean).join("\n");
-  const personalization = describePersonalization(designProfile);
+  const personalization = [
+    relettering ? "This is an explicit lettering change: replace the old letter assembly, including obsolete flourishes, letter-dot decorations and bridges tied to the old layout. Do not preserve old calligraphic strokes as extra ornament after changing the font or construction. The new letter contours and silhouette may change to express the requested style and exact name; retain only the overall jewelry scale and unaffected chain, metal, stone treatment and photography. This instruction takes precedence over preserving the old lettering geometry." : "",
+    hasInscriptionReference ? "REFERENCE IMAGE 1 is the source jewelry photograph. REFERENCE IMAGE 2 shows only the customer’s exact inscription in the intended letterform family. The source photograph defines unaffected jewelry and photography; the inscription guide defines spelling and letter anatomy. When the edit requests a lettering correction or a new lettering style, rebuild any malformed strokes from the guide instead of restyling the error. For unrelated edits, preserve the source lettering and use the guide only to avoid accidental text changes. Render the complete inscription once, not as a second pendant or overlay." : "",
+    describePersonalization(designProfile)
+  ].filter(Boolean).join(" ");
   const letteringDirective = buildExactLetteringDirective(designProfile);
   const textConstraint = buildImageTextConstraint(designProfile, true);
 
@@ -159,7 +166,7 @@ function buildGenerationReferenceDirective(profile: DesignProfile, hasInscriptio
   if (hasInscriptionReference && profile.personalizationText.trim()) {
     directives.push(
       `REFERENCE IMAGE 1 is the AUTHORITATIVE SPELLING GUIDE for the exact inscription "${profile.personalizationText.trim()}".`,
-      "Use every character in its correct order, joining behavior, and dot placement. It supplies character identity only; do not copy its flat typography or white background."
+      "Use every character in its correct order, joining behavior, and dot placement. It supplies exact character identity AND correctly shaped letter anatomy in the intended font family. Follow its letter bodies, counters, contextual joins and dot count; convert the strokes into metal without substituting similar-looking glyphs. Do not copy its white background or flat ink appearance."
     );
   }
   if (profile.letteringStylePreference || profile.fontPreference) {
@@ -228,6 +235,8 @@ function buildExactLetteringDirective(profile: DesignProfile) {
     `Render the jewelry inscription once, exactly as "${exactText}".`,
     `Character inventory in logical reading order (not a layout instruction): ${JSON.stringify(Array.from(exactText.normalize("NFC")))}. Include every character and every repeated occurrence; never shorten the name to a familiar word.`,
     "Do not translate, transliterate, substitute, add, remove, decorate, mirror, reverse, or duplicate any character.",
+    "Letter bodies, counters, joining behavior and every required dot identify the characters. Preserve the correct number, grouping and position of letter dots. Requested stones may decorate those dots, but never merge two required dots into one gem or invent additional dots, bezels or decorative rhombuses that change the readable letter. Never let a bridge become a new apparent letter stroke or close an essential counter.",
+    "When a stylized layout would make the requested name unreadable, reduce the interlock or flourish and retain the closest legible version of the selected style. Correct spelling takes priority over decorative complexity.",
     "Treat the inscription as a production-feasible jewelry component, never as flat printed typography or a collection of loose symbols.",
     "Use believable fine-jewelry metal thickness, clean edges, load-bearing joins, and secure attachment points.",
     "Every visible letter component must belong to one coherent wearable assembly; no piece may hover, float, balance loosely, or remain mechanically unsupported.",
@@ -339,17 +348,18 @@ function buildImageTextConstraint(profile: DesignProfile, removeExistingText: bo
 
 function getPreservedElements(editInstruction: string) {
   const requested = editInstruction.toLowerCase();
+  const relettering = changesLetteringConstruction(editInstruction);
   const candidates: Array<{ label: string; changesWhen: RegExp }> = [
     {
       label: "jewelry type",
       changesWhen: /\b(?:ring|necklace|pendant|bracelet|earrings?|jewelry type|turn (?:it|this) into|convert)\b/i
     },
     {
-      label: "main design identity",
+      label: relettering ? "non-lettering jewelry identity" : "main design identity",
       changesWhen: /\b(?:redesign|reimagine|entirely new|new design identity|transform the whole)\b/i
     },
     {
-      label: "pendant dimensions and proportions",
+      label: relettering ? "overall jewelry scale, allowing the new lettering silhouette and proportions" : "pendant dimensions and proportions",
       changesWhen: /\b(?:dimension|proportion|size|length|width|scale|larger|smaller|thicker|thinner)\b/i
     },
     { label: "chain", changesWhen: /\bchain\b/i },
@@ -377,4 +387,11 @@ function getPreservedElements(editInstruction: string) {
   const preserved = candidates.filter((candidate) => !candidate.changesWhen.test(requested)).map((candidate) => candidate.label);
 
   return preserved.length ? preserved : ["all details not explicitly included in the requested change"];
+}
+
+function changesLetteringConstruction(instruction: string) {
+  const normalized = instruction.toLowerCase();
+  return /\b(?:font|lettering|calligraphy|calligraphic|monogram|kufi|typeface)\b|خط|الحروف|حروف|كوفي|كاليجرافي/iu.test(instruction) ||
+    jewelryFonts.some((font) => normalized.includes(font.name.toLowerCase())) ||
+    jewelryLetteringStyles.some((style) => normalized.includes(style.name.toLowerCase()));
 }

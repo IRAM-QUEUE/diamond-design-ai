@@ -1,3 +1,4 @@
+import { createInscriptionReferenceDataUrl } from "@/services/image/inscription-reference";
 import { NextResponse } from "next/server";
 import { reviewPersonalizedImage } from "@/services/image/quality-review";
 import { serverEnv } from "@/config/env";
@@ -77,13 +78,6 @@ export async function POST(request: Request) {
       effectiveModelPreference: routing.effectivePreference,
       wasArabicOverride: routing.wasArabicOverride
     };
-    const prompt = buildEditPrompt({
-      designProfile: updatedDesignProfile,
-      editInstruction,
-      sourceVariationName: variationName,
-      preference: routing.effectivePreference
-    });
-
     const auth = await requireAuthenticatedUser(request);
     if (auth instanceof NextResponse) return auth;
 
@@ -142,9 +136,17 @@ export async function POST(request: Request) {
         sourceImageId: body.sourceImageId,
         imageUrl: body.imageUrl
       });
+      const inscriptionReference = await createInscriptionReferenceDataUrl(updatedDesignProfile.personalizationText, updatedDesignProfile);
       const image = await provider.editDesign({
+        referenceImageUrls: inscriptionReference ? [inscriptionReference] : [],
         imageUrl: resolvedImageUrl,
-        prompt,
+        prompt: buildEditPrompt({
+          designProfile: updatedDesignProfile,
+          editInstruction,
+          sourceVariationName: variationName,
+          preference: routing.effectivePreference,
+          hasInscriptionReference: Boolean(inscriptionReference)
+        }),
         editInstruction,
         sourceImageId: body.sourceImageId,
         sourceVersion: body.sourceVersion,

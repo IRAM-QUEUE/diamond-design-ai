@@ -4,7 +4,7 @@ export type ReplicateModelInput = Record<string, unknown>;
 
 type InputBuilder = {
   generation: (prompt: string, referenceImageUrls: string[]) => ReplicateModelInput;
-  editing: (prompt: string, imageUrl: string) => ReplicateModelInput;
+  editing: (prompt: string, imageUrl: string, referenceImageUrls: string[]) => ReplicateModelInput;
 };
 
 const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
@@ -18,9 +18,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       output_quality: 80,
       safety_tolerance: 2
     }),
-    editing: (prompt, imageUrl) => ({
+    editing: (prompt, imageUrl, referenceImageUrls) => ({
       prompt,
-      input_images: [imageUrl],
+      input_images: [imageUrl, ...referenceImageUrls],
       aspect_ratio: "match_input_image",
       resolution: "match_input_image",
       output_format: "webp",
@@ -40,9 +40,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       background: "opaque",
       moderation: "auto"
     }),
-    editing: (prompt, imageUrl) => ({
+    editing: (prompt, imageUrl, referenceImageUrls) => ({
       prompt,
-      input_images: [imageUrl],
+      input_images: [imageUrl, ...referenceImageUrls],
       aspect_ratio: "1:1",
       quality: "medium",
       number_of_images: 1,
@@ -62,9 +62,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       google_search: false,
       image_search: false
     }),
-    editing: (prompt, imageUrl) => ({
+    editing: (prompt, imageUrl, referenceImageUrls) => ({
       prompt,
-      image_input: [imageUrl],
+      image_input: [imageUrl, ...referenceImageUrls],
       aspect_ratio: "match_input_image",
       resolution: "1K",
       output_format: "png",
@@ -82,9 +82,9 @@ const inputBuilders: Record<ActiveReplicateImageModel, InputBuilder> = {
       max_images: 1,
       output_format: "png"
     }),
-    editing: (prompt, imageUrl) => ({
+    editing: (prompt, imageUrl, referenceImageUrls) => ({
       prompt,
-      image_input: [imageUrl],
+      image_input: [imageUrl, ...referenceImageUrls],
       aspect_ratio: "match_input_image",
       size: "2K",
       sequential_image_generation: "disabled",
@@ -102,6 +102,6 @@ export function buildReplicateGenerationInput(
   return inputBuilders[model].generation(prompt, referenceImageUrls);
 }
 
-export function buildReplicateEditInput(model: ActiveReplicateImageModel, prompt: string, imageUrl: string) {
-  return inputBuilders[model].editing(prompt, imageUrl);
+export function buildReplicateEditInput(model: ActiveReplicateImageModel, prompt: string, imageUrl: string, referenceImageUrls: string[] = []) {
+  return inputBuilders[model].editing(prompt, imageUrl, referenceImageUrls);
 }

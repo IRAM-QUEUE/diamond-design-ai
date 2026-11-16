@@ -37,6 +37,7 @@ export type GenerateDesignsResponse = {
 };
 
 export type EditDesignProviderRequest = {
+  referenceImageUrls?: string[];
   imageUrl: string;
   prompt: string;
   editInstruction: string;

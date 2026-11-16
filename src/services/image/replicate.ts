@@ -84,14 +84,14 @@ export class ReplicateImageProvider implements ImageGenerationProvider {
     let output: ReplicateOutput;
     const model = request.model ?? imageModels.flux2Pro;
     try {
-      output = await this.runEdit(model, request.prompt, request.imageUrl);
+      output = await this.runEdit(model, request.prompt, request.imageUrl, request.referenceImageUrls);
     } catch (error) {
       if (!isSensitiveContentFalsePositive(error)) {
         throw new ImageGenerationError(`Replicate image edit failed: ${getErrorMessage(error)}`);
       }
 
       try {
-        output = await this.runEdit(model, `${request.prompt}\n\n${safeJewelryRetryInstruction}`, request.imageUrl);
+        output = await this.runEdit(model, `${request.prompt}\n\n${safeJewelryRetryInstruction}`, request.imageUrl, request.referenceImageUrls);
       } catch (retryError) {
         if (isSensitiveContentFalsePositive(retryError)) {
           throw new ImageGenerationError(
@@ -125,11 +125,11 @@ export class ReplicateImageProvider implements ImageGenerationProvider {
     };
   }
 
-  private runEdit(model: EditDesignProviderRequest["model"], prompt: string, imageUrl: string) {
+  private runEdit(model: EditDesignProviderRequest["model"], prompt: string, imageUrl: string, referenceImageUrls: string[] = []) {
     const selectedModel = model ?? imageModels.flux2Pro;
     return withTimeout(
       this.client.run(selectedModel, {
-        input: buildReplicateEditInput(selectedModel, prompt, imageUrl)
+        input: buildReplicateEditInput(selectedModel, prompt, imageUrl, referenceImageUrls)
       }) as Promise<ReplicateOutput>,
       requestTimeoutMs
     );

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "amiri",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf",
+    "gitBlobSha": "14dfa0d6c80db50460d23daa306a7ac92e74676f",
+    "license": "amiri-OFL.txt"
+  },
+  {
+    "id": "noto-naskh-arabic",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf",
+    "gitBlobSha": "a8d2867262dc7bb28492ad746de5d56235735c8b",
+    "license": "noto-naskh-arabic-OFL.txt"
+  },
+  {
+    "id": "scheherazade-new",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/scheherazadenew/ScheherazadeNew-Regular.ttf",
+    "gitBlobSha": "80e1be589d5d687b0764904bf5a37627587d9bd6",
+    "license": "scheherazade-new-OFL.txt"
+  },
+  {
+    "id": "cairo",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cairo/Cairo%5Bslnt%2Cwght%5D.ttf",
+    "gitBlobSha": "25641b1c828857698457bcd9f5a102616b4e8033",
+    "license": "cairo-OFL.txt"
+  },
+  {
+    "id": "noto-kufi-arabic",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notokufiarabic/NotoKufiArabic%5Bwght%5D.ttf",
+    "gitBlobSha": "9bb606f2ba004955109ea00a883cc23959b8d8e2",
+    "license": "noto-kufi-arabic-OFL.txt"
+  },
+  {
+    "id": "reem-kufi",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/reemkufi/ReemKufi%5Bwght%5D.ttf",
+    "gitBlobSha": "ad1a769f41ed4a2b87e3afe4289c9115acb9cc97",
+    "license": "reem-kufi-OFL.txt"
+  },
+  {
+    "id": "great-vibes",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/greatvibes/GreatVibes-Regular.ttf",
+    "gitBlobSha": "a1327ff3b862246f1f253639040edcc473e5f3a9",
+    "license": "great-vibes-OFL.txt"
+  },
+  {
+    "id": "dancing-script",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/dancingscript/DancingScript%5Bwght%5D.ttf",
+    "gitBlobSha": "9f521e7fb357ec9ea9820ebd36a9d7b1f72f2935",
+    "license": "dancing-script-OFL.txt"
+  },
+  {
+    "id": "cormorant-garamond",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf",
+    "gitBlobSha": "d992a83ce525c330fad3a19087746bcb2dc038ee",
+    "license": "cormorant-garamond-OFL.txt"
+  },
+  {
+    "id": "cinzel",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/Cinzel%5Bwght%5D.ttf",
+    "gitBlobSha": "d218a0b9c8879fd5a708872cc0ef357e507b35ca",
+    "license": "cinzel-OFL.txt"
+  },
+  {
+    "id": "montserrat",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf",
+    "gitBlobSha": "c97aca18592834d8706549c279cb8d5ac5d85f69",
+    "license": "montserrat-OFL.txt"
+  },
+  {
+    "id": "lora",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lora/Lora%5Bwght%5D.ttf",
+    "gitBlobSha": "ee1914c3746140523de2940d267ec2215bd85d5b",
+    "license": "lora-OFL.txt"
+  }
+]

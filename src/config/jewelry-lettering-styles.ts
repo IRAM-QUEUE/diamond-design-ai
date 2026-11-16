@@ -5,6 +5,7 @@ export type JewelryLetteringStyle = {
   tags: string[];
   note: string;
   constructionDirection: string;
+  referenceFonts: { arabic: string; latin: string };
   supportsArabic: boolean;
   supportsLatin: boolean;
 };
@@ -12,6 +13,7 @@ export type JewelryLetteringStyle = {
 export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   {
     id: "flowing-calligraphy",
+    referenceFonts: { arabic: "amiri", latin: "great-vibes" },
     name: "Flowing Calligraphy",
     previewImage: "/lettering-styles/flowing-calligraphy.png",
     tags: ["Sweeping", "Romantic", "Connected"],
@@ -23,6 +25,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "sculptural-interlock",
+    referenceFonts: { arabic: "amiri", latin: "cinzel" },
     name: "Sculptural Interlock",
     previewImage: "/lettering-styles/sculptural-interlock.png",
     tags: ["Layered", "Artistic", "Bold"],
@@ -34,6 +37,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "stacked-arabic-calligraphy",
+    referenceFonts: { arabic: "amiri", latin: "lora" },
     name: "Stacked Arabic Calligraphy",
     previewImage: "/lettering-styles/stacked-arabic-calligraphy.png",
     tags: ["Intertwined", "Layered", "Statement"],
@@ -45,6 +49,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "vertical-calligraphic-monogram",
+    referenceFonts: { arabic: "amiri", latin: "lora" },
     name: "Vertical Calligraphic Monogram",
     previewImage: "/lettering-styles/vertical-calligraphic-monogram.png",
     tags: ["Compact", "Vertical", "Emblem"],
@@ -56,6 +61,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "minimal-signature",
+    referenceFonts: { arabic: "cairo", latin: "dancing-script" },
     name: "Minimal Signature",
     previewImage: "/lettering-styles/minimal-signature.png",
     tags: ["Delicate", "Modern", "Everyday"],
@@ -67,6 +73,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "geometric-kufi",
+    referenceFonts: { arabic: "noto-kufi-arabic", latin: "montserrat" },
     name: "Geometric Kufi",
     previewImage: "/lettering-styles/geometric-kufi.png",
     tags: ["Angular", "Architectural", "Contemporary"],
@@ -78,6 +85,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "diamond-pave",
+    referenceFonts: { arabic: "noto-naskh-arabic", latin: "lora" },
     name: "Diamond Pavé Lettering",
     previewImage: "/lettering-styles/diamond-pave.png",
     tags: ["Diamond-set", "Brilliant", "Luxury"],
@@ -89,6 +97,7 @@ export const jewelryLetteringStyles: JewelryLetteringStyle[] = [
   },
   {
     id: "framed-medallion",
+    referenceFonts: { arabic: "noto-naskh-arabic", latin: "cinzel" },
     name: "Framed Medallion",
     previewImage: "/lettering-styles/framed-medallion.png",
     tags: ["Openwork", "Framed", "Heirloom"],
